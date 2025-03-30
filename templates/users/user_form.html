@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title }} - CincoCincoJAM 2.0{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">{{ title }}</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" class="form">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.first_name|crispy }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.last_name|crispy }}
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.email|crispy }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.user_type|crispy }}
+                        </div>
+                    </div>
+                    
+                    {% if form.password1 %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.password1|crispy }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.password2|crispy }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if form.bio %}
+                    <div class="row">
+                        <div class="col-12">
+                            {{ form.bio|crispy }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if form.profile_image %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            {{ form.profile_image|crispy }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.is_active|crispy }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'users:user_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Salvar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

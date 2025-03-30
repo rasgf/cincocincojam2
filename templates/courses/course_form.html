@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+    {% if form.instance.pk %}Editar Curso{% else %}Novo Curso{% endif %} - CincoCincoJAM 2.0
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'courses:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'courses:course_list' %}">Cursos</a></li>
+                <li class="breadcrumb-item active">
+                    {% if form.instance.pk %}Editar Curso{% else %}Novo Curso{% endif %}
+                </li>
+            </ol>
+        </nav>
+        <h2>{% if form.instance.pk %}Editar Curso{% else %}Novo Curso{% endif %}</h2>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        {{ form.title|as_crispy_field }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.short_description|as_crispy_field }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.description|as_crispy_field }}
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        {{ form.price|as_crispy_field }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.status|as_crispy_field }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.image|as_crispy_field }}
+                        {% if form.instance.image %}
+                            <div class="mt-2">
+                                <p>Imagem atual:</p>
+                                <img src="{{ form.instance.image.url }}" alt="{{ form.instance.title }}" class="img-thumbnail" style="max-height: 150px;">
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 d-flex justify-content-between">
+                <a href="{% if form.instance.pk %}{% url 'courses:course_detail' form.instance.pk %}{% else %}{% url 'courses:course_list' %}{% endif %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> {% if form.instance.pk %}Atualizar{% else %}Criar{% endif %} Curso
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow mt-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0">Dicas para criação de cursos</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <h5><i class="fas fa-lightbulb text-warning"></i> Título Atrativo</h5>
+                    <p class="text-muted">Escolha um título claro e direto que descreva exatamente o que seu curso oferece.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <h5><i class="fas fa-image text-primary"></i> Imagem de Qualidade</h5>
+                    <p class="text-muted">Use uma imagem de alta qualidade (1280x720px) que represente bem o conteúdo do curso.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <h5><i class="fas fa-file-alt text-success"></i> Descrição Detalhada</h5>
+                    <p class="text-muted">Explique o que os alunos aprenderão, para quem o curso é indicado e quais são os pré-requisitos.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

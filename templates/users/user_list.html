@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Gerenciar Usuários - CincoCincoJAM 2.0{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Gerenciamento de Usuários</h2>
+    <a href="{% url 'users:user_create' %}" class="btn btn-primary">
+        <i class="fas fa-plus-circle"></i> Novo Usuário
+    </a>
+</div>
+
+<div class="card shadow">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th>Tipo</th>
+                        <th>Ativo</th>
+                        <th>Data de Cadastro</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user_obj in users %}
+                        <tr>
+                            <td>{{ user_obj.get_full_name|default:"-" }}</td>
+                            <td>{{ user_obj.email }}</td>
+                            <td>
+                                {% if user_obj.user_type == 'ADMIN' %}
+                                    <span class="badge bg-danger">Admin</span>
+                                {% elif user_obj.user_type == 'PROFESSOR' %}
+                                    <span class="badge bg-primary">Professor</span>
+                                {% else %}
+                                    <span class="badge bg-success">Aluno</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user_obj.is_active %}
+                                    <span class="badge bg-success">Ativo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user_obj.date_joined|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'users:user_detail' user_obj.id %}" class="btn btn-sm btn-info" title="Detalhes">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'users:user_update' user_obj.id %}" class="btn btn-sm btn-warning" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'users:user_delete' user_obj.id %}" class="btn btn-sm btn-danger" title="Excluir">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">Nenhum usuário encontrado.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

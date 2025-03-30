@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Publicar Curso - CincoCincoJAM 2.0{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'courses:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'courses:course_list' %}">Cursos</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'courses:course_detail' course.id %}">{{ course.title }}</a></li>
+                <li class="breadcrumb-item active">Publicar</li>
+            </ol>
+        </nav>
+        <h2>Publicar Curso</h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow border-success mb-4">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="fas fa-check-circle me-2"></i>Pronto para publicar</h4>
+            </div>
+            <div class="card-body">
+                <h5 class="mb-3">Você está prestes a publicar o curso:</h5>
+                <p class="fw-bold fs-5">{{ course.title }}</p>
+                
+                <p>Ao publicar este curso:</p>
+                <ul>
+                    <li>Ele estará visível para todos os alunos</li>
+                    <li>Os alunos poderão se matricular e acessar o conteúdo</li>
+                    <li>Você ainda poderá editar o curso e suas aulas após a publicação</li>
+                </ul>
+                
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Dica:</strong> Verifique se todas as aulas e materiais estão completos antes de publicar.
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        {{ form|crispy }}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'courses:course_detail' course.id %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Voltar para o Curso
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-globe"></i> Publicar Curso
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Checklist de Publicação</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                {% if course.title %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle text-danger"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Título do curso</h6>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="list-group-item">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                {% if course.description %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle text-danger"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Descrição completa</h6>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="list-group-item">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                {% if course.image %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% else %}
+                                    <i class="fas fa-exclamation-circle text-warning"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Imagem de capa</h6>
+                                {% if not course.image %}
+                                    <small class="text-muted">Recomendado, mas não obrigatório</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="list-group-item">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                {% if course.get_total_lessons > 0 %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle text-danger"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Pelo menos uma aula</h6>
+                                <small class="text-muted">
+                                    {% if course.get_total_lessons > 0 %}
+                                        {{ course.get_total_lessons }} aulas criadas
+                                    {% else %}
+                                        Nenhuma aula criada
+                                    {% endif %}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="list-group-item">
+                        <div class="d-flex align-items-center">
+                            <div class="me-3">
+                                {% if course.price is not None %}
+                                    <i class="fas fa-check-circle text-success"></i>
+                                {% else %}
+                                    <i class="fas fa-times-circle text-danger"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h6 class="mb-0">Preço definido</h6>
+                                {% if course.price is not None %}
+                                    <small class="text-muted">R$ {{ course.price }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

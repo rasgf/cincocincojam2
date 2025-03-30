@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block title %}Início - CincoCincoJAM 2.0{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12 text-center mt-5">
+        <h1 class="display-4">Bem-vindo ao CincoCincoJAM 2.0</h1>
+        <p class="lead">Plataforma para gestão de cursos online e interação entre professores e alunos.</p>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <i class="fas fa-chalkboard-teacher fa-3x mb-3 text-primary"></i>
+                <h3 class="card-title">Para Professores</h3>
+                <p class="card-text">Crie e gerencie seus cursos, acompanhe seus alunos e organize sua agenda.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <i class="fas fa-user-graduate fa-3x mb-3 text-primary"></i>
+                <h3 class="card-title">Para Alunos</h3>
+                <p class="card-text">Acesse cursos de qualidade, aprenda no seu ritmo e acompanhe seu progresso.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <i class="fas fa-cogs fa-3x mb-3 text-primary"></i>
+                <h3 class="card-title">Para Administradores</h3>
+                <p class="card-text">Gerencie usuários, monitore a plataforma e obtenha relatórios detalhados.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not user.is_authenticated %}
+<div class="row mt-3">
+    <div class="col-12 text-center">
+        <a href="{% url 'login' %}" class="btn btn-primary btn-lg">Fazer Login</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

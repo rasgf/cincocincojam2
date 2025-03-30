@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}
+    {% if form.instance.pk %}Editar Aula{% else %}Nova Aula{% endif %} - CincoCincoJAM 2.0
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'courses:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'courses:course_list' %}">Cursos</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'courses:course_detail' course.id %}">{{ course.title }}</a></li>
+                <li class="breadcrumb-item active">
+                    {% if form.instance.pk %}Editar Aula{% else %}Nova Aula{% endif %}
+                </li>
+            </ol>
+        </nav>
+        <h2>{% if form.instance.pk %}Editar Aula{% else %}Nova Aula{% endif %}</h2>
+        <p class="text-muted">Curso: {{ course.title }}</p>
+    </div>
+</div>
+
+<div class="card shadow">
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        {{ form.title|as_crispy_field }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.description|as_crispy_field }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.video_url|as_crispy_field }}
+                        {% if form.instance.video_url %}
+                            <div class="mt-2">
+                                <p>Link atual: <a href="{{ form.instance.video_url }}" target="_blank">{{ form.instance.video_url }}</a></p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        {{ form.order|as_crispy_field }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.status|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-4 d-flex justify-content-between">
+                <a href="{% url 'courses:course_detail' course.id %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Voltar para o Curso
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> {% if form.instance.pk %}Atualizar{% else %}Criar{% endif %} Aula
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow mt-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0">Dicas para criação de aulas</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <h5><i class="fas fa-heading text-warning"></i> Título Claro</h5>
+                    <p class="text-muted">Use títulos descritivos que indiquem claramente o conteúdo da aula.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <h5><i class="fas fa-sort-numeric-down text-primary"></i> Ordem Lógica</h5>
+                    <p class="text-muted">Mantenha uma sequência lógica nas aulas para facilitar o aprendizado dos alunos.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="mb-3">
+                    <h5><i class="fas fa-video text-success"></i> Vídeos de Qualidade</h5>
+                    <p class="text-muted">Certifique-se de que seus vídeos tenham boa qualidade de áudio e imagem.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

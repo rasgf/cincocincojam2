@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard do Professor - CincoCincoJAM 2.0{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Dashboard do Professor</h2>
+    <div>
+        <a href="{% url 'courses:course_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus-circle"></i> Novo Curso
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Card de Cursos -->
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-body text-center">
+                <div class="display-4 text-primary mb-2">{{ total_courses }}</div>
+                <h4>Cursos</h4>
+                <div class="small text-muted">
+                    <span class="badge bg-success">{{ published_courses }} Publicados</span>
+                    <span class="badge bg-secondary">{{ draft_courses }} Rascunhos</span>
+                </div>
+                <hr>
+                <a href="{% url 'courses:course_list' %}" class="btn btn-sm btn-outline-primary">Ver Todos</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card de Alunos (placeholder para etapa futura) -->
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-body text-center">
+                <div class="display-4 text-primary mb-2">0</div>
+                <h4>Alunos</h4>
+                <div class="small text-muted">
+                    <span class="badge bg-info">Funcionalidade em breve</span>
+                </div>
+                <hr>
+                <button disabled class="btn btn-sm btn-outline-primary">Ver Todos</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card de Ganhos (placeholder para etapa futura) -->
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-body text-center">
+                <div class="display-4 text-primary mb-2">R$ 0,00</div>
+                <h4>Ganhos</h4>
+                <div class="small text-muted">
+                    <span class="badge bg-info">Funcionalidade em breve</span>
+                </div>
+                <hr>
+                <button disabled class="btn btn-sm btn-outline-primary">Ver Relatório</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Cursos Recentes -->
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Cursos Recentes</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Título</th>
+                                <th>Status</th>
+                                <th>Aulas</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for course in recent_courses %}
+                            <tr>
+                                <td>{{ course.title }}</td>
+                                <td>
+                                    {% if course.status == 'PUBLISHED' %}
+                                        <span class="badge bg-success">Publicado</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Rascunho</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ course.total_lessons }}</td>
+                                <td>
+                                    <a href="{% url 'courses:course_detail' course.id %}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center">Nenhum curso cadastrado.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sugestões e Dicas -->
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Dicas para Professores</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Crie cursos atrativos</h5>
+                            <small class="text-muted"><i class="fas fa-star"></i></small>
+                        </div>
+                        <p class="mb-1">Use títulos claros e descrições detalhadas para atrair alunos.</p>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Organize as aulas</h5>
+                            <small class="text-muted"><i class="fas fa-list-ol"></i></small>
+                        </div>
+                        <p class="mb-1">Mantenha uma sequência lógica de aprendizado com aulas organizadas.</p>
+                    </div>
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">Mantenha seu conteúdo atualizado</h5>
+                            <small class="text-muted"><i class="fas fa-sync"></i></small>
+                        </div>
+                        <p class="mb-1">Atualize regularmente seu conteúdo para manter seus cursos relevantes.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

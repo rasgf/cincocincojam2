@@ -1,0 +1,63 @@
+/* Estilos personalizados para CincoCincoJAM 2.0 */
+
+body {
+    display: flex;
+    min-height: 100vh;
+    flex-direction: column;
+}
+
+main {
+    flex: 1;
+}
+
+/* Personalização de cores */
+.bg-primary {
+    background-color: #3c6e71 !important;
+}
+
+.btn-primary {
+    background-color: #3c6e71;
+    border-color: #3c6e71;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: #284b4c;
+    border-color: #284b4c;
+}
+
+.text-primary {
+    color: #3c6e71 !important;
+}
+
+/* Ajustes de cards */
+.card {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.card-header {
+    border-radius: 0 !important;
+}
+
+/* Personalização do navbar */
+.navbar-dark .navbar-brand {
+    font-weight: bold;
+}
+
+/* Estilo para imagens de perfil */
+.profile-img {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 5px solid #f5f5f5;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* Padding para páginas internas */
+.page-header {
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}

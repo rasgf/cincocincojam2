@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalhes do Usuário - CincoCincoJAM 2.0{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Detalhes do Usuário</h2>
+    <div>
+        <a href="{% url 'users:user_update' user_obj.id %}" class="btn btn-warning">
+            <i class="fas fa-edit"></i> Editar
+        </a>
+        <a href="{% url 'users:user_delete' user_obj.id %}" class="btn btn-danger">
+            <i class="fas fa-trash"></i> Excluir
+        </a>
+        <a href="{% url 'users:user_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Voltar
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card shadow mb-4">
+            <div class="card-body text-center">
+                {% if user_obj.profile_image %}
+                    <img src="{{ user_obj.profile_image.url }}" alt="{{ user_obj.get_full_name }}" class="rounded-circle img-fluid mb-3" style="max-width: 150px;">
+                {% else %}
+                    <div class="bg-light rounded-circle d-inline-block p-4 mb-3">
+                        <i class="fas fa-user fa-5x text-secondary"></i>
+                    </div>
+                {% endif %}
+                
+                <h3>{{ user_obj.get_full_name }}</h3>
+                <p class="text-muted">{{ user_obj.email }}</p>
+                
+                {% if user_obj.user_type == 'ADMIN' %}
+                    <span class="badge bg-danger">Administrador</span>
+                {% elif user_obj.user_type == 'PROFESSOR' %}
+                    <span class="badge bg-primary">Professor</span>
+                {% else %}
+                    <span class="badge bg-success">Aluno</span>
+                {% endif %}
+                
+                {% if user_obj.is_active %}
+                    <span class="badge bg-success">Ativo</span>
+                {% else %}
+                    <span class="badge bg-secondary">Inativo</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Informações do Usuário</h4>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Nome completo:</dt>
+                    <dd class="col-sm-9">{{ user_obj.get_full_name|default:"-" }}</dd>
+                    
+                    <dt class="col-sm-3">E-mail:</dt>
+                    <dd class="col-sm-9">{{ user_obj.email }}</dd>
+                    
+                    <dt class="col-sm-3">Tipo de usuário:</dt>
+                    <dd class="col-sm-9">{{ user_obj.get_user_type_display }}</dd>
+                    
+                    <dt class="col-sm-3">Status:</dt>
+                    <dd class="col-sm-9">{{ user_obj.is_active|yesno:"Ativo,Inativo" }}</dd>
+                    
+                    <dt class="col-sm-3">Data de cadastro:</dt>
+                    <dd class="col-sm-9">{{ user_obj.date_joined|date:"d/m/Y H:i" }}</dd>
+                    
+                    <dt class="col-sm-3">Último login:</dt>
+                    <dd class="col-sm-9">{{ user_obj.last_login|date:"d/m/Y H:i"|default:"-" }}</dd>
+                    
+                    {% if user_obj.bio %}
+                        <dt class="col-sm-3">Biografia:</dt>
+                        <dd class="col-sm-9">{{ user_obj.bio }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

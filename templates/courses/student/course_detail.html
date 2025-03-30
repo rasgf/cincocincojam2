@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ course.title }} - CincoCincoJAM 2.0{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'courses:student:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'courses:student:course_list' %}">Catálogo</a></li>
+                <li class="breadcrumb-item active">{{ course.title }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Informações do Curso -->
+    <div class="col-lg-8">
+        <div class="card shadow mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        {% if course.image %}
+                            <img src="{{ course.image.url }}" class="img-fluid rounded mb-3" alt="{{ course.title }}">
+                        {% else %}
+                            <div class="bg-light rounded text-center py-5 mb-3">
+                                <i class="fas fa-book fa-4x text-muted"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-8">
+                        <h2 class="mb-3">{{ course.title }}</h2>
+                        <div class="d-flex mb-3">
+                            <span class="badge bg-primary me-2">Curso</span>
+                            {% if is_enrolled %}
+                                <span class="badge bg-success">Matriculado</span>
+                            {% endif %}
+                        </div>
+                        <p class="text-muted">
+                            <i class="fas fa-user"></i> Professor: {{ course.professor.get_full_name|default:course.professor.email }}
+                        </p>
+                        <p class="text-muted">
+                            <i class="fas fa-calendar"></i> Publicado em: {{ course.created_at|date:"d/m/Y" }}
+                        </p>
+                        <p class="text-muted">
+                            <i class="fas fa-list"></i> {{ course.get_total_lessons }} aulas
+                        </p>
+                        <div class="d-flex align-items-center">
+                            <h3 class="text-primary mb-0 me-3">R$ {{ course.price }}</h3>
+                            {% if not is_enrolled %}
+                                <a href="{% url 'courses:student:course_enroll' course.id %}" class="btn btn-primary">
+                                    <i class="fas fa-graduation-cap"></i> Matricular-se
+                                </a>
+                            {% else %}
+                                <a href="{% url 'courses:student:course_learn' course.id %}" class="btn btn-success">
+                                    <i class="fas fa-play-circle"></i> Continuar Aprendizado
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <h4>Sobre este curso</h4>
+                <p>{{ course.description|linebreaks }}</p>
+            </div>
+        </div>
+        
+        <!-- Conteúdo do Curso -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Conteúdo do Curso</h5>
+            </div>
+            <div class="card-body">
+                {% if lessons %}
+                    <div class="list-group">
+                        {% for lesson in lessons %}
+                            <div class="list-group-item {% if not is_enrolled %}{% if forloop.counter > 2 %}disabled opacity-50{% endif %}{% endif %}">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge bg-primary rounded-circle me-2">{{ lesson.order }}</span>
+                                            <h5 class="mb-1">{{ lesson.title }}</h5>
+                                        </div>
+                                        {% if lesson.description %}
+                                            <p class="mb-1 text-muted small">{{ lesson.description|truncatechars:100 }}</p>
+                                        {% endif %}
+                                    </div>
+                                    {% if is_enrolled %}
+                                        <a href="{% url 'courses:student:course_learn' course.id %}?lesson_id={{ lesson.id }}" class="btn btn-sm btn-outline-primary">
+                                            {% if lesson.id in completed_lessons %}
+                                                <i class="fas fa-check-circle"></i> Concluída
+                                            {% else %}
+                                                <i class="fas fa-play-circle"></i> Assistir
+                                            {% endif %}
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if not is_enrolled and total_lessons > 2 %}
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-lock me-2"></i>
+                            <strong>Acesso restrito!</strong> Matricule-se neste curso para acessar todas as {{ total_lessons }} aulas.
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="alert alert-info">
+                        Este curso ainda não possui aulas.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">O que você aprenderá</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    {% for lesson in lessons|slice:":5" %}
+                        <li class="mb-2">
+                            <i class="fas fa-check text-success me-2"></i> {{ lesson.title }}
+                        </li>
+                    {% endfor %}
+                    {% if total_lessons > 5 %}
+                        <li class="mb-2 text-muted">
+                            <i class="fas fa-plus-circle me-2"></i> E mais {{ total_lessons|add:"-5" }} outros tópicos...
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card shadow mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Informações do Curso</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-list me-2"></i> Total de aulas</span>
+                        <span class="badge bg-primary rounded-pill">{{ course.get_total_lessons }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-users me-2"></i> Alunos matriculados</span>
+                        <span class="badge bg-primary rounded-pill">{{ course.get_enrolled_students_count }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-calendar me-2"></i> Data de criação</span>
+                        <span>{{ course.created_at|date:"d/m/Y" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-sync me-2"></i> Última atualização</span>
+                        <span>{{ course.updated_at|date:"d/m/Y" }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Sobre o Professor</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    {% if course.professor.profile_image %}
+                        <img src="{{ course.professor.profile_image.url }}" class="rounded-circle me-3" width="50" height="50" alt="{{ course.professor.get_full_name }}">
+                    {% else %}
+                        <div class="bg-light rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                            <i class="fas fa-user text-muted"></i>
+                        </div>
+                    {% endif %}
+                    <div>
+                        <h5 class="mb-1">{{ course.professor.get_full_name|default:course.professor.email }}</h5>
+                        <small class="text-muted">Professor</small>
+                    </div>
+                </div>
+                
+                {% if course.professor.bio %}
+                    <p>{{ course.professor.bio|truncatewords:50 }}</p>
+                {% else %}
+                    <p class="text-muted">Este professor ainda não adicionou uma biografia.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

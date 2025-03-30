@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirmar Exclusão de Aula - CincoCincoJAM 2.0{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'courses:dashboard' %}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'courses:course_list' %}">Cursos</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'courses:course_detail' course.id %}">{{ course.title }}</a></li>
+                <li class="breadcrumb-item active">Excluir Aula</li>
+            </ol>
+        </nav>
+        <h2>Confirmar Exclusão de Aula</h2>
+    </div>
+</div>
+
+<div class="card shadow border-danger">
+    <div class="card-header bg-danger text-white">
+        <h4 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Atenção</h4>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-warning">
+            <h5>Você está prestes a excluir a aula:</h5>
+            <p class="fw-bold fs-5">{{ object.title }}</p>
+            
+            <p>Esta ação <strong>não pode ser desfeita</strong> e será removida do curso <strong>{{ course.title }}</strong>.</p>
+            
+            <p><strong>Nota:</strong> A ordem das demais aulas <strong>não</strong> será ajustada automaticamente.</p>
+        </div>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div class="d-flex justify-content-between mt-4">
+                <a href="{% url 'courses:course_detail' course.id %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Confirmar Exclusão
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
