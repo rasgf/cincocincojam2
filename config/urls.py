@@ -53,6 +53,9 @@ urlpatterns = [
     # Payments management
     path('payments/', include('payments.urls')),
     
+    # Assistant
+    path('assistant/', include('assistant.urls')),
+    
     # Home page
     path('', TemplateView.as_view(template_name='home.html'), name='home'),
 ]

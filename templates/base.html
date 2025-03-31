@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% csrf_token %}
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}CincoCincoJAM 2.0{% endblock %}</title>
     
     <!-- Bootstrap CSS -->
@@ -15,6 +17,9 @@
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    
+    <!-- CSS para o widget de chat -->
+    <link rel="stylesheet" href="{% static 'css/chat-widget.css' %}">
     
     <!-- Script para gerenciar temas claro/escuro com dropdown menu -->
     <script>
@@ -301,6 +306,11 @@
                                 {% else %}
                                     <li><a class="dropdown-item" href="{% url 'users:user_detail' user.id %}">Perfil</a></li>
                                 {% endif %}
+                                
+                                {% if user.is_admin or user.is_staff %}
+                                    <li><a class="dropdown-item" href="{% url 'assistant:behavior_config' %}">Assistente IA</a></li>
+                                {% endif %}
+                                
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'logout' %}">Sair</a></li>
                             </ul>
@@ -310,6 +320,13 @@
                             <a class="nav-link" href="{% url 'login' %}">Entrar</a>
                         </li>
                     {% endif %}
+                    
+                    <!-- Link para configuração do Assistente IA -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'assistant:behavior_config' %}" title="Configurar Assistente IA">
+                            <i class="fas fa-robot"></i>
+                        </a>
+                    </li>
                     
                     <!-- Menu dropdown para seleção de tema -->
                     <li class="nav-item dropdown">
@@ -356,6 +373,38 @@
         {% block content %}{% endblock %}
     </main>
     
+    <!-- Widget de Chat Persistente -->
+    <div class="chat-widget-container">
+        <div class="chat-widget-button" id="chat-widget-button">
+            <i class="chat-widget-icon fas fa-comment"></i>
+        </div>
+        
+        <div class="chat-widget-popup" id="chat-widget-popup">
+            <div class="chat-widget-header">
+                <h5 class="mb-0">Assistente Virtual</h5>
+                <div class="chat-widget-controls">
+                    <span class="chat-widget-expand" id="chat-widget-expand" title="Expandir chat">
+                        <i class="fas fa-expand-alt"></i>
+                    </span>
+                    <span class="chat-widget-close" id="chat-widget-close" title="Fechar chat">
+                        <i class="fas fa-times"></i>
+                    </span>
+                </div>
+            </div>
+            <div class="chat-widget-messages" id="chat-widget-messages">
+                <div class="text-center text-muted my-4">
+                    <p>Olá! Como posso ajudar?</p>
+                </div>
+            </div>
+            <form class="chat-widget-input-container" id="chat-widget-form">
+                <input type="text" class="chat-widget-input" id="chat-widget-input" placeholder="Digite sua mensagem...">
+                <button type="submit" class="chat-widget-send">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+    
     <!-- Rodapé -->
     <footer class="py-4 mt-auto border-top">
         <div class="container text-center">
@@ -365,6 +414,9 @@
     
     <!-- Bootstrap Bundle com Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- JS Customizado -->
+    <script src="{% static 'js/chat-widget.js' %}"></script>
     
     {% block extra_js %}{% endblock %}
 </body>
