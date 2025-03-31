@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from .models import Course, Lesson, Enrollment, LessonProgress
 from .forms import CourseEnrollForm, CourseSearchForm
+from core.models import User
 
 
 class StudentRequiredMixin(UserPassesTestMixin):
@@ -16,7 +17,10 @@ class StudentRequiredMixin(UserPassesTestMixin):
     Mixin para restringir acesso apenas a usuários com tipo aluno.
     """
     def test_func(self):
-        return self.request.user.is_authenticated and self.request.user.is_student
+        result = self.request.user.is_authenticated and self.request.user.is_student
+        # Log para depuração
+        print(f"StudentRequiredMixin test_func: usuário {self.request.user.email}, is_student={self.request.user.is_student}, resultado={result}")
+        return result
 
 
 class EnrollmentRequiredMixin(UserPassesTestMixin):
@@ -74,9 +78,9 @@ class StudentDashboardView(LoginRequiredMixin, StudentRequiredMixin, ListView):
         return context
 
 
-class CourseListView(ListView):
+class CourseListView(LoginRequiredMixin, ListView):
     """
-    Lista todos os cursos publicados disponíveis para matrícula.
+    Lista todos os cursos publicados disponíveis para visualização por alunos e professores.
     """
     model = Course
     template_name = 'courses/student/course_list.html'
@@ -110,32 +114,49 @@ class CourseListView(ListView):
         else:
             queryset = queryset.order_by('-created_at')
             
-        # Para usuários autenticados, marque os cursos em que já estão matriculados
+        # Para usuários autenticados, tratamento específico por tipo de usuário
         if self.request.user.is_authenticated:
-            enrolled_courses = Enrollment.objects.filter(
-                student=self.request.user,
-                status=Enrollment.Status.ACTIVE
-            ).values_list('course_id', flat=True)
-            
-            queryset = queryset.annotate(
-                is_enrolled=Case(
-                    When(id__in=enrolled_courses, then=1),
-                    default=0,
-                    output_field=IntegerField()
+            # Para alunos, marque os cursos em que já estão matriculados
+            if self.request.user.is_student:
+                enrolled_courses = Enrollment.objects.filter(
+                    student=self.request.user,
+                    status=Enrollment.Status.ACTIVE
+                ).values_list('course_id', flat=True)
+                
+                queryset = queryset.annotate(
+                    is_enrolled=Case(
+                        When(id__in=enrolled_courses, then=1),
+                        default=0,
+                        output_field=IntegerField()
+                    )
                 )
-            )
+            # Para professores, marque os cursos que são de sua autoria
+            elif self.request.user.is_professor:
+                own_courses = Course.objects.filter(
+                    professor=self.request.user
+                ).values_list('id', flat=True)
+                
+                queryset = queryset.annotate(
+                    is_own_course=Case(
+                        When(id__in=own_courses, then=1),
+                        default=0,
+                        output_field=IntegerField()
+                    )
+                )
         
         return queryset
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['search_form'] = CourseSearchForm(self.request.GET)
+        context['is_professor'] = self.request.user.is_professor
+        context['is_student'] = self.request.user.is_student
         return context
 
 
-class CourseDetailView(DetailView):
+class CourseDetailView(LoginRequiredMixin, DetailView):
     """
-    Exibe os detalhes de um curso específico para alunos.
+    Exibe os detalhes de um curso específico para alunos e professores.
     """
     model = Course
     template_name = 'courses/student/course_detail.html'
@@ -149,10 +170,16 @@ class CourseDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         course = self.object
         
-        # Verifica se o aluno está matriculado no curso
+        # Verifica o tipo de usuário e suas permissões
         is_enrolled = False
         enrollment = None
+        is_course_author = False
         
+        # Adiciona informações sobre o tipo de usuário ao contexto
+        context['is_student'] = self.request.user.is_student
+        context['is_professor'] = self.request.user.is_professor
+
+        # Para alunos, verifica matrícula
         if self.request.user.is_authenticated and self.request.user.is_student:
             try:
                 enrollment = Enrollment.objects.get(
@@ -176,6 +203,12 @@ class CourseDetailView(DetailView):
                 
             except Enrollment.DoesNotExist:
                 pass
+        # Para professores, verifica se é autor do curso
+        elif self.request.user.is_authenticated and self.request.user.is_professor:
+            is_course_author = (course.professor == self.request.user)
+            context['is_course_author'] = is_course_author
+            # Professores sempre podem ver todas as aulas
+            is_enrolled = True  # Consideramos como "enrolled" para mostrar todas as aulas
                 
         context['is_enrolled'] = is_enrolled
         context['enrollment_form'] = CourseEnrollForm()
@@ -196,67 +229,96 @@ class CourseDetailView(DetailView):
         return context
 
 
-class CourseEnrollView(LoginRequiredMixin, StudentRequiredMixin, FormView):
+class CourseEnrollView(LoginRequiredMixin, View):
     """
     Permite que um aluno se matricule em um curso.
+    Permite matrícula direta através de requisição GET ou POST.
     """
-    form_class = CourseEnrollForm
-    template_name = 'courses/student/course_enroll.html'
+    # Removemos o StudentRequiredMixin para facilitar o debug
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['course'] = get_object_or_404(
-            Course,
-            pk=self.kwargs['pk'],
-            status=Course.Status.PUBLISHED
-        )
-        return context
+    def get(self, request, *args, **kwargs):
+        # Processa a matrícula diretamente sem exigir formulário
+        return self.process_enrollment(request, *args, **kwargs)
+        
+    def post(self, request, *args, **kwargs):
+        # Também aceita requisições POST (para compatibilidade com o formulário existente)
+        return self.process_enrollment(request, *args, **kwargs)
     
-    def form_valid(self, form):
+    def process_enrollment(self, request, *args, **kwargs):
+        # Log para depuração
+        print(f"\n[DEBUG] process_enrollment iniciado para: {request.user.email}")
+        print(f"[DEBUG] Tipo de usuário: {request.user.user_type}, is_student: {request.user.is_student}")
+        print(f"[DEBUG] Curso ID: {kwargs.get('pk')}")
+        
+        # Usamos kwargs que foram passados para o método, não self.kwargs
         course = get_object_or_404(
             Course,
-            pk=self.kwargs['pk'],
+            pk=kwargs.get('pk'),
             status=Course.Status.PUBLISHED
         )
         
+        # Salva o ID do curso para uso no get_success_url
+        self.course_id = course.id
+        
+        # Verifica se o usuário é um aluno
+        if not request.user.is_student:
+            messages.error(request, 'Apenas alunos podem se matricular em cursos.')
+            print(f"[DEBUG] ERRO: Usuário não é um aluno")
+            return redirect('courses:student:course_detail', pk=course.id)
+        
         # Verifica se o aluno já está matriculado
-        enrollment, created = Enrollment.objects.get_or_create(
-            student=self.request.user,
-            course=course,
-            defaults={'status': Enrollment.Status.ACTIVE}
-        )
-        
-        if not created and enrollment.status == Enrollment.Status.CANCELLED:
-            # Se a matrícula estava cancelada, reativa
-            enrollment.status = Enrollment.Status.ACTIVE
-            enrollment.save()
-            messages.success(self.request, 'Você reativou sua matrícula no curso.')
-        elif not created:
-            messages.info(self.request, 'Você já está matriculado neste curso.')
-        else:
-            messages.success(self.request, 'Matrícula realizada com sucesso!')
-            
-            # Cria registros de progresso para todas as aulas
-            lessons = Lesson.objects.filter(
+        try:
+            print(f"[DEBUG] Tentando matricular {self.request.user.email} no curso {course.id} - {course.title}")
+            enrollment, created = Enrollment.objects.get_or_create(
+                student=self.request.user,
                 course=course,
-                status=Lesson.Status.PUBLISHED
+                defaults={'status': Enrollment.Status.ACTIVE}
             )
+            print(f"[DEBUG] Matrícula criada: {created}, Status: {enrollment.status}")
             
-            for lesson in lessons:
-                LessonProgress.objects.get_or_create(
-                    enrollment=enrollment,
-                    lesson=lesson
+            if not created and enrollment.status == Enrollment.Status.CANCELLED:
+                # Se a matrícula estava cancelada, reativa
+                print(f"[DEBUG] Reativando matrícula cancelada")
+                enrollment.status = Enrollment.Status.ACTIVE
+                enrollment.save()
+                messages.success(self.request, 'Você reativou sua matrícula no curso.')
+            elif not created:
+                print(f"[DEBUG] Usuário já está matriculado")
+                messages.info(self.request, 'Você já está matriculado neste curso.')
+            else:
+                print(f"[DEBUG] Nova matrícula realizada com sucesso")
+                messages.success(self.request, 'Matrícula realizada com sucesso!')
+                
+                # Cria registros de progresso para todas as aulas
+                lessons = Lesson.objects.filter(
+                    course=course,
+                    status=Lesson.Status.PUBLISHED
                 )
+                print(f"[DEBUG] Criando registros de progresso para {lessons.count()} aulas")
+                
+                for lesson in lessons:
+                    LessonProgress.objects.get_or_create(
+                        enrollment=enrollment,
+                        lesson=lesson
+                    )
+        except Exception as e:
+            print(f"[DEBUG] ERRO na matrícula: {str(e)}")
+            messages.error(self.request, f'Erro ao processar a matrícula: {str(e)}')
         
+        print(f"[DEBUG] Redirecionando para página de aprendizado do curso {self.course_id}")
         return HttpResponseRedirect(self.get_success_url())
     
     def get_success_url(self):
-        return reverse('courses:student:course_learn', kwargs={'pk': self.kwargs['pk']})
+        # Importante: usar o ID do curso que acabou de ser processado
+        url = reverse('courses:student:course_learn', kwargs={'pk': self.course_id})
+        print(f"[DEBUG] URL de redirecionamento: {url}")
+        return url
 
 
-class CourseLearnView(LoginRequiredMixin, EnrollmentRequiredMixin, DetailView):
+class CourseLearnView(LoginRequiredMixin, DetailView):
     """
     Interface para o aluno assistir e acompanhar as aulas de um curso.
+    Professores também podem acessar o modo de aprendizado de seus próprios cursos.
     """
     model = Course
     template_name = 'courses/student/course_learn.html'
@@ -264,21 +326,56 @@ class CourseLearnView(LoginRequiredMixin, EnrollmentRequiredMixin, DetailView):
     
     def get_queryset(self):
         return Course.objects.filter(status=Course.Status.PUBLISHED)
+        
+    def dispatch(self, request, *args, **kwargs):
+        course = get_object_or_404(Course, pk=kwargs['pk'], status=Course.Status.PUBLISHED)
+        
+        # Verifica se o usuário é professor e autor do curso
+        is_professor = request.user.user_type == User.Types.PROFESSOR
+        is_course_author = is_professor and course.professor == request.user
+        
+        # Se não for professor/autor, verifica se está matriculado
+        if not (is_professor and is_course_author):
+            try:
+                Enrollment.objects.get(
+                    student=request.user,
+                    course=course,
+                    status=Enrollment.Status.ACTIVE
+                )
+            except Enrollment.DoesNotExist:
+                messages.error(request, 'Você não está matriculado neste curso.')
+                return redirect('courses:student:course_detail', pk=course.id)
+        
+        return super().dispatch(request, *args, **kwargs)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         course = self.object
         
-        # Obtém a matrícula do aluno
-        enrollment = get_object_or_404(
-            Enrollment,
-            student=self.request.user,
-            course=course,
-            status=Enrollment.Status.ACTIVE
-        )
+        # Verifica se o usuário é um professor e autor do curso
+        is_professor = self.request.user.user_type == User.Types.PROFESSOR
+        is_course_author = is_professor and course.professor == self.request.user
         
-        context['enrollment'] = enrollment
-        context['progress_width'] = f"{enrollment.progress}%"
+        context['is_professor'] = is_professor
+        context['is_course_author'] = is_course_author
+        
+        # Se é professor e autor do curso, permite acesso sem matrícula
+        if is_professor and is_course_author:
+            enrollment = None
+            context['enrollment'] = None
+            context['progress_width'] = "100%"
+            context['viewing_as_professor'] = True
+        else:
+            # Obtém a matrícula do aluno
+            enrollment = get_object_or_404(
+                Enrollment,
+                student=self.request.user,
+                course=course,
+                status=Enrollment.Status.ACTIVE
+            )
+            
+            context['enrollment'] = enrollment
+            context['progress_width'] = f"{enrollment.progress}%"
         
         # Obtém todas as aulas do curso em ordem
         lessons = Lesson.objects.filter(
@@ -314,19 +411,23 @@ class CourseLearnView(LoginRequiredMixin, EnrollmentRequiredMixin, DetailView):
         context['current_lesson'] = current_lesson
         
         # Busca as aulas que o aluno já completou para marcar visualmente
-        completed_lessons = LessonProgress.objects.filter(
-            enrollment=enrollment,
-            is_completed=True
-        ).values_list('lesson_id', flat=True)
-        
-        context['completed_lessons'] = completed_lessons
+        if enrollment:
+            completed_lessons = LessonProgress.objects.filter(
+                enrollment=enrollment,
+                is_completed=True
+            ).values_list('lesson_id', flat=True)
+            context['completed_lessons'] = completed_lessons
+        else:
+            # Para professores, todas as aulas são consideradas completas
+            context['completed_lessons'] = [lesson.id for lesson in context['lessons']]
         
         if current_lesson:
-            # Atualiza ou cria um registro de progresso para esta aula
-            lesson_progress, created = LessonProgress.objects.get_or_create(
-                enrollment=enrollment,
-                lesson=current_lesson
-            )
+            # Atualiza ou cria um registro de progresso para esta aula (apenas para alunos)
+            if enrollment:
+                lesson_progress, created = LessonProgress.objects.get_or_create(
+                    enrollment=enrollment,
+                    lesson=current_lesson
+                )
             
             # Extrai o ID do vídeo do YouTube, se for um vídeo do YouTube
             youtube_video_id = None
