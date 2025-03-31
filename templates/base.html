@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br" data-bs-theme="auto">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -14,6 +14,22 @@
     <!-- CSS Customizado -->
     {% load static %}
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    <link rel="stylesheet" href="{% static 'css/theme.css' %}">
+    
+    <!-- Script para detectar tema do sistema -->
+    <script>
+        // Detecta preferência de tema do usuário
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.setAttribute('data-bs-theme', 'dark');
+        } else {
+            document.documentElement.setAttribute('data-bs-theme', 'light');
+        }
+        
+        // Monitora mudanças na preferência de tema
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            document.documentElement.setAttribute('data-bs-theme', event.matches ? 'dark' : 'light');
+        });
+    </script>
     
     {% block extra_css %}{% endblock %}
 </head>
@@ -103,7 +119,7 @@
     </main>
     
     <!-- Rodapé -->
-    <footer class="bg-light py-4 mt-auto">
+    <footer class="py-4 mt-auto border-top">
         <div class="container text-center">
             <p class="mb-0">&copy; {% now "Y" %} CincoCincoJAM 2.0. Todos os direitos reservados.</p>
         </div>
