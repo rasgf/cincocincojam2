@@ -17,7 +17,7 @@
             </ol>
         </nav>
     </div>
-    {% if is_professor and is_course_author %}
+    {% if is_admin or is_professor and is_course_author %}
     <div>
         <a href="{% url 'courses:course_update' course.id %}" class="btn btn-warning">
             <i class="fas fa-edit"></i> Editar Curso
@@ -62,10 +62,27 @@
                             <h3 class="text-primary mb-0 me-3">R$ {{ course.price }}</h3>
                             {% if is_student %}
                                 {% if not is_enrolled %}
-                                    <a href="{% url 'courses:student:course_enroll' course.id %}" class="btn btn-primary">
-                                        <i class="fas fa-graduation-cap"></i> Matricular-se Agora
-                                    </a>
-                                    <p class="small text-muted mt-2">Acesso imediato a todas as aulas do curso.</p>
+                                    {% if enrollment_exists and enrollment_status == 'CANCELLED' %}
+                                        <div>
+                                            <a href="{% url 'courses:student:course_enroll' course.id %}" class="btn btn-primary me-2">
+                                                <i class="fas fa-graduation-cap"></i> Matricular-se Novamente
+                                            </a>
+                                            <a href="{% url 'payments:create_pix_payment' course.id %}" class="btn btn-success">
+                                                <i class="fas fa-qrcode"></i> Comprar com Pix
+                                            </a>
+                                        </div>
+                                        <p class="small text-muted mt-2">Sua matrícula anterior foi cancelada. Você pode se matricular novamente.</p>
+                                    {% else %}
+                                        <div>
+                                            <a href="{% url 'courses:student:course_enroll' course.id %}" class="btn btn-primary me-2">
+                                                <i class="fas fa-graduation-cap"></i> Matricular-se Agora
+                                            </a>
+                                            <a href="{% url 'payments:create_pix_payment' course.id %}" class="btn btn-success">
+                                                <i class="fas fa-qrcode"></i> Comprar com Pix
+                                            </a>
+                                        </div>
+                                        <p class="small text-muted mt-2">Escolha entre matrícula direta ou pagamento via Pix.</p>
+                                    {% endif %}
                                 {% else %}
                                     <a href="{% url 'courses:student:course_learn' course.id %}" class="btn btn-success">
                                         <i class="fas fa-play-circle"></i> Continuar Aprendizado

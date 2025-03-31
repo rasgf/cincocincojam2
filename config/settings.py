@@ -180,6 +180,10 @@ LOGOUT_REDIRECT_URL = 'login'
 # Para usar modelo de usuário customizado (será criado no app core)
 AUTH_USER_MODEL = 'core.User'
 
+# Configuração do OpenPix (integração de pagamento PIX)
+OPENPIX_TOKEN = "Q2xpZW50X0lkXzkyZTNlM2Q4LTM1ZTctNDk1My04ODJiLTY1MTc0MmE3NWIwMTpDbGllbnRfU2VjcmV0XzlXdHVKTTgwSXFYYkNEVzl6MjVxTmh4REFLcnhVTXRqeFBkNmk1cTZnKzQ9"
+OPENPIX_WEBHOOK_SECRET = ""  # Será definido posteriormente
+
 # Settings para o Assistente Virtual/ChatBot
 OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
 OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-4o-mini')
