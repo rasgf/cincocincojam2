@@ -50,6 +50,9 @@ urlpatterns = [
     # Courses management
     path('courses/', include('courses.urls')),
     
+    # Payments management
+    path('payments/', include('payments.urls')),
+    
     # Assistant
     path('assistant/', include('assistant.urls')),
     

@@ -69,6 +69,19 @@ class StudentDashboardView(LoginRequiredMixin, StudentRequiredMixin, ListView):
             status=Enrollment.Status.COMPLETED
         ).count()
         
+        # Calcular o progresso médio
+        total_progress = 0
+        enrollments_count = enrollments.count()
+        
+        if enrollments_count > 0:
+            for enrollment in enrollments:
+                total_progress += enrollment.progress
+            avg_progress = int(total_progress / enrollments_count)
+        else:
+            avg_progress = 0
+            
+        context['avg_progress'] = avg_progress
+        
         # Cursos recentemente acessados
         context['recent_lessons'] = LessonProgress.objects.filter(
             enrollment__student=self.request.user

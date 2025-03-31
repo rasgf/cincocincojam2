@@ -4,8 +4,10 @@ from django.views.generic import ListView, DetailView, CreateView, UpdateView, D
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
+from django.db.models import Count
 
 from .forms import CustomUserCreationForm, CustomUserChangeForm
+from courses.models import Course, Enrollment
 
 User = get_user_model()
 
@@ -34,8 +36,23 @@ class DashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
         context['total_professors'] = users.filter(user_type=User.Types.PROFESSOR).count()
         context['total_students'] = users.filter(user_type=User.Types.STUDENT).count()
         
+        # Estatísticas de cursos
+        courses = Course.objects.all()
+        context['total_courses'] = courses.count()
+        context['published_courses'] = courses.filter(status=Course.Status.PUBLISHED).count()
+        context['draft_courses'] = courses.filter(status=Course.Status.DRAFT).count()
+        
+        # Estatísticas de matrículas
+        enrollments = Enrollment.objects.all()
+        context['total_enrollments'] = enrollments.count()
+        context['active_enrollments'] = enrollments.filter(status=Enrollment.Status.ACTIVE).count()
+        context['cancelled_enrollments'] = enrollments.filter(status=Enrollment.Status.CANCELLED).count()
+        
         # Usuários recentes
         context['recent_users'] = users.order_by('-date_joined')[:5]
+        
+        # Cursos recentes
+        context['recent_courses'] = courses.order_by('-created_at')[:5]
         
         return context
 

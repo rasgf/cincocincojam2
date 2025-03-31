@@ -34,14 +34,9 @@
         <div class="card shadow mb-4">
             <div class="card-body text-center">
                 {% if enrollments %}
-                    {% with total_progress=0 enrollments_count=enrollments|length %}
-                        {% for enrollment in enrollments %}
-                            {% with total_progress=total_progress|add:enrollment.progress %}{% endwith %}
-                        {% endfor %}
                         <div class="display-4 text-primary mb-2">
-                            {{ total_progress|divisibleby:enrollments_count }}%
+                            {{ avg_progress }}%
                         </div>
-                    {% endwith %}
                 {% else %}
                     <div class="display-4 text-primary mb-2">0%</div>
                 {% endif %}
@@ -52,15 +47,10 @@
                 <hr>
                 <div class="progress">
                     {% if enrollments %}
-                        {% with total_progress=0 enrollments_count=enrollments|length %}
-                            {% for enrollment in enrollments %}
-                                {% with total_progress=total_progress|add:enrollment.progress %}{% endwith %}
-                            {% endfor %}
-                            <div class="progress-bar" role="progressbar" style="width: {{ total_progress|divisibleby:enrollments_count }}%" 
-                                aria-valuenow="{{ total_progress|divisibleby:enrollments_count }}" aria-valuemin="0" aria-valuemax="100">
-                                {{ total_progress|divisibleby:enrollments_count }}%
+                            <div class="progress-bar" role="progressbar" style="width: {{ avg_progress }}%" 
+                                aria-valuenow="{{ avg_progress }}" aria-valuemin="0" aria-valuemax="100">
+                                {{ avg_progress }}%
                             </div>
-                        {% endwith %}
                     {% else %}
                         <div class="progress-bar" role="progressbar" style="width: 0%" 
                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
