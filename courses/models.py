@@ -212,6 +212,24 @@ class Enrollment(models.Model):
         
     def __str__(self):
         return f"{self.student.email} - {self.course.title}"
+        
+    def save(self, *args, **kwargs):
+        # Verificar se é uma nova matrícula (sem ID ainda)
+        is_new = self.pk is None
+        
+        # Salvar a matrícula
+        super().save(*args, **kwargs)
+        
+        # Se for uma nova matrícula, criar automaticamente uma transação de pagamento
+        if is_new:
+            from payments.models import PaymentTransaction
+            
+            # Criar uma transação pendente com o valor do curso
+            PaymentTransaction.objects.create(
+                enrollment=self,
+                amount=self.course.price,
+                status=PaymentTransaction.Status.PENDING
+            )
     
     @property
     def is_active(self):

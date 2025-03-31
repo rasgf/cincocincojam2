@@ -14,7 +14,73 @@
                 <form method="post" enctype="multipart/form-data" class="form">
                     {% csrf_token %}
                     
-                    <!-- Renderização manual dos campos principais -->
+                    {% if form.instance.pk %}
+                    <!-- Modo de Edição - sem campos de senha -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_first_name">Nome *</label>
+                                <input type="text" name="first_name" value="{{ form.instance.first_name }}" maxlength="150" class="form-control" required id="id_first_name">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_last_name">Sobrenome *</label>
+                                <input type="text" name="last_name" value="{{ form.instance.last_name }}" maxlength="150" class="form-control" required id="id_last_name">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_email">Email *</label>
+                                <input type="email" name="email" value="{{ form.instance.email }}" maxlength="254" class="form-control" required id="id_email">
+                                <small class="form-text text-muted">Este será o login do usuário.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_user_type">Tipo de Usuário *</label>
+                                <select name="user_type" class="form-select" required id="id_user_type">
+                                    <option value="ADMIN" {% if form.instance.user_type == 'ADMIN' %}selected{% endif %}>Administrador</option>
+                                    <option value="PROFESSOR" {% if form.instance.user_type == 'PROFESSOR' %}selected{% endif %}>Professor</option>
+                                    <option value="STUDENT" {% if form.instance.user_type == 'STUDENT' %}selected{% endif %}>Aluno</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="form-group">
+                                <label for="id_bio">Biografia</label>
+                                <textarea name="bio" rows="3" class="form-control" id="id_bio">{{ form.instance.bio }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="id_profile_image">Imagem de Perfil</label>
+                                <input type="file" name="profile_image" class="form-control" id="id_profile_image">
+                                {% if form.instance.profile_image %}
+                                <small class="form-text text-muted">Imagem atual: {{ form.instance.profile_image.url }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check mt-4">
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" {% if form.instance.is_active %}checked{% endif %}>
+                                <label class="form-check-label" for="id_is_active">Usuário ativo</label>
+                                <small class="form-text text-muted d-block">Desmarque para desativar o acesso do usuário.</small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% else %}
+                    <!-- Modo de Criação - com campos de senha -->
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <div class="form-group">
@@ -66,6 +132,7 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
                     
                     <div class="d-flex justify-content-between mt-4">
                         <a href="{% url 'users:user_list' %}" class="btn btn-secondary">

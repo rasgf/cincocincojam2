@@ -3,11 +3,16 @@ from django.urls import reverse_lazy, reverse
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, FormView, View
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib import messages
-from django.db.models import Count
+from django.db.models import Count, Q, Sum
 from django.http import HttpResponseRedirect, JsonResponse
+from django.utils import timezone
+from datetime import timedelta
+from django.contrib.auth import get_user_model
 
-from .models import Course, Lesson
+from .models import Course, Lesson, Enrollment
 from .forms import CourseForm, LessonForm, CoursePublishForm
+
+User = get_user_model()
 
 
 class ProfessorRequiredMixin(UserPassesTestMixin):
@@ -15,14 +20,51 @@ class ProfessorRequiredMixin(UserPassesTestMixin):
     Mixin para restringir acesso apenas a usuários com tipo professor.
     """
     def test_func(self):
-        return self.request.user.is_authenticated and self.request.user.is_professor
+        is_professor = self.request.user.is_authenticated and self.request.user.is_professor
+        print(f"ProfessorRequiredMixin test_func: usuário {self.request.user}, is_professor={is_professor}, resultado={is_professor}")
+        return is_professor
+
+
+class AdminRequiredMixin(UserPassesTestMixin):
+    """
+    Mixin para restringir acesso apenas a usuários com tipo administrador.
+    """
+    def test_func(self):
+        is_admin = self.request.user.is_authenticated and self.request.user.is_admin
+        print(f"AdminRequiredMixin test_func: usuário {self.request.user}, is_admin={is_admin}, resultado={is_admin}")
+        return is_admin
+
+
+class ProfessorOrAdminRequiredMixin(UserPassesTestMixin):
+    """
+    Mixin para restringir acesso a usuários com tipo professor ou administrador.
+    """
+    def test_func(self):
+        is_professor = self.request.user.is_authenticated and self.request.user.is_professor
+        is_admin = self.request.user.is_authenticated and self.request.user.is_admin
+        return is_professor or is_admin
+
+
+class StudentRequiredMixin(UserPassesTestMixin):
+    """
+    Mixin para restringir acesso apenas a usuários com tipo aluno.
+    """
+    def test_func(self):
+        is_student = self.request.user.is_authenticated and self.request.user.is_student
+        print(f"StudentRequiredMixin test_func: usuário {self.request.user}, is_student={is_student}, resultado={is_student}")
+        return is_student
 
 
 class ProfessorCourseMixin(UserPassesTestMixin):
     """
-    Mixin para verificar se o curso pertence ao professor logado.
+    Mixin para verificar se o curso pertence ao professor logado ou se o usuário é administrador.
     """
     def test_func(self):
+        # Se é administrador, tem acesso a tudo
+        if self.request.user.is_authenticated and self.request.user.is_admin:
+            return True
+            
+        # Se não é professor autenticado, não tem acesso
         if not self.request.user.is_authenticated or not self.request.user.is_professor:
             return False
             
@@ -44,7 +86,7 @@ class ProfessorCourseMixin(UserPassesTestMixin):
         return True  # Para CreateView, que não tem curso ainda
 
 
-class DashboardView(LoginRequiredMixin, ProfessorRequiredMixin, ListView):
+class DashboardView(LoginRequiredMixin, ProfessorOrAdminRequiredMixin, ListView):
     """
     Dashboard do professor mostrando seus cursos e estatísticas gerais.
     """
@@ -59,8 +101,9 @@ class DashboardView(LoginRequiredMixin, ProfessorRequiredMixin, ListView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        professor = self.request.user
         
-        # Estatísticas básicas
+        # Estatísticas básicas de cursos
         courses = self.get_queryset()
         context['total_courses'] = courses.count()
         context['published_courses'] = courses.filter(status=Course.Status.PUBLISHED).count()
@@ -69,29 +112,78 @@ class DashboardView(LoginRequiredMixin, ProfessorRequiredMixin, ListView):
         # Cursos recentemente editados
         context['recent_courses'] = courses.order_by('-updated_at')[:5]
         
+        # Estatísticas de alunos
+        # Alunos ativos nos cursos do professor
+        active_students = User.objects.filter(
+            user_type='STUDENT',
+            enrollments__course__professor=professor,
+            enrollments__status=Enrollment.Status.ACTIVE
+        ).distinct()
+        context['total_students'] = active_students.count()
+        
+        # Alunos recentes (matriculados nos últimos 30 dias)
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        recent_students = User.objects.filter(
+            user_type='STUDENT',
+            enrollments__course__professor=professor,
+            enrollments__enrolled_at__gte=thirty_days_ago
+        ).distinct()
+        context['recent_students'] = recent_students.count()
+        
+        # Totalizar ganhos financeiros
+        try:
+            from payments.models import PaymentTransaction
+            # Total recebido (status PAID)
+            transactions = PaymentTransaction.objects.filter(enrollment__course__professor=professor)
+            total_paid = transactions.filter(status=PaymentTransaction.Status.PAID).aggregate(
+                total=Sum('amount')
+            )['total'] or 0
+            context['total_revenue'] = total_paid
+        except:
+            # Se o app payments não estiver disponível
+            context['total_revenue'] = 0
+        
         return context
 
 
-class CourseListView(LoginRequiredMixin, ProfessorRequiredMixin, ListView):
+class CourseListView(LoginRequiredMixin, ProfessorOrAdminRequiredMixin, ListView):
     """
-    Lista todos os cursos do professor logado.
+    Lista todos os cursos. Para professores, filtra apenas seus cursos.
+    Para administradores, mostra todos os cursos.
     """
     model = Course
     template_name = 'courses/course_list.html'
     context_object_name = 'courses'
     
     def get_queryset(self):
-        # Filtra os cursos do professor logado
+        # Se o usuário é um administrador, mostra todos os cursos
+        if self.request.user.is_admin:
+            return Course.objects.all().order_by('-created_at')
+            
+        # Se é um professor, filtra apenas os cursos dele
         return Course.objects.filter(professor=self.request.user).order_by('-created_at')
 
 
-class CourseDetailView(LoginRequiredMixin, ProfessorCourseMixin, DetailView):
+class CourseDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
     """
     Exibe os detalhes de um curso específico, incluindo suas aulas.
+    Administradores podem ver qualquer curso, professores apenas seus próprios cursos.
     """
     model = Course
     template_name = 'courses/course_detail.html'
     context_object_name = 'course'
+    
+    def test_func(self):
+        # Se for administrador, tem acesso a qualquer curso
+        if self.request.user.is_admin:
+            return True
+            
+        # Se for professor, só tem acesso aos seus cursos
+        if self.request.user.is_professor:
+            course = self.get_object()
+            return course.professor == self.request.user
+            
+        return False
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -100,7 +192,7 @@ class CourseDetailView(LoginRequiredMixin, ProfessorCourseMixin, DetailView):
         return context
 
 
-class CourseCreateView(LoginRequiredMixin, ProfessorRequiredMixin, CreateView):
+class CourseCreateView(LoginRequiredMixin, ProfessorOrAdminRequiredMixin, CreateView):
     """
     Cria um novo curso.
     """
@@ -200,20 +292,26 @@ class LessonCreateView(LoginRequiredMixin, ProfessorCourseMixin, CreateView):
         return super().form_valid(form)
 
 
-class LessonUpdateView(LoginRequiredMixin, UpdateView):
+class LessonUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     """
     Atualiza uma aula existente.
+    Administradores podem editar qualquer aula, professores apenas suas próprias aulas.
     """
     model = Lesson
     form_class = LessonForm
     template_name = 'courses/lesson_form.html'
     
-    def dispatch(self, request, *args, **kwargs):
-        # Obter a aula e verificar permissões
-        self.object = self.get_object()
-        if not request.user.is_professor or self.object.course.professor != request.user:
-            return self.handle_no_permission()
-        return super().dispatch(request, *args, **kwargs)
+    def test_func(self):
+        # Se é administrador, pode editar qualquer aula
+        if self.request.user.is_admin:
+            return True
+            
+        # Se é professor, só pode editar suas próprias aulas
+        if self.request.user.is_professor:
+            lesson = self.get_object()
+            return lesson.course.professor == self.request.user
+            
+        return False
     
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -234,19 +332,25 @@ class LessonUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class LessonDeleteView(LoginRequiredMixin, DeleteView):
+class LessonDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     """
     Exclui uma aula.
+    Administradores podem excluir qualquer aula, professores apenas suas próprias aulas.
     """
     model = Lesson
     template_name = 'courses/lesson_confirm_delete.html'
     
-    def dispatch(self, request, *args, **kwargs):
-        # Obter a aula e verificar permissões
-        self.object = self.get_object()
-        if not request.user.is_professor or self.object.course.professor != request.user:
-            return self.handle_no_permission()
-        return super().dispatch(request, *args, **kwargs)
+    def test_func(self):
+        # Se é administrador, pode excluir qualquer aula
+        if self.request.user.is_admin:
+            return True
+            
+        # Se é professor, só pode excluir suas próprias aulas
+        if self.request.user.is_professor:
+            lesson = self.get_object()
+            return lesson.course.professor == self.request.user
+            
+        return False
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

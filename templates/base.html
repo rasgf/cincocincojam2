@@ -244,6 +244,11 @@
                                 <a class="nav-link" href="{% url 'users:dashboard' %}">Dashboard</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link" href="{% url 'payments:admin_dashboard' %}">
+                                    <i class="fas fa-chart-line"></i> Financeiro
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
                             </li>
                             <li class="nav-item">
@@ -256,6 +261,11 @@
                                 <a class="nav-link" href="{% url 'courses:dashboard' %}">Dashboard</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link" href="{% url 'payments:professor_dashboard' %}">
+                                    <i class="fas fa-chart-line"></i> Financeiro
+                                </a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link" href="{% url 'courses:course_list' %}">Meus Cursos</a>
                             </li>
                             <li class="nav-item">
@@ -266,6 +276,11 @@
                         {% if user.is_student %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'courses:student:dashboard' %}">Meus Cursos</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'payments:student_payments' %}">
+                                    <i class="fas fa-credit-card"></i> Meus Pagamentos
+                                </a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'courses:student:course_list' %}">Catálogo de Cursos</a>
