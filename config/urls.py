@@ -50,6 +50,9 @@ urlpatterns = [
     # Courses management
     path('courses/', include('courses.urls')),
     
+    # Assistant
+    path('assistant/', include('assistant.urls')),
+    
     # Home page
     path('', TemplateView.as_view(template_name='home.html'), name='home'),
 ]
