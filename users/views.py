@@ -52,13 +52,45 @@ class UserListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
         return User.objects.all().order_by('-date_joined')
 
 
-class UserDetailView(LoginRequiredMixin, AdminRequiredMixin, DetailView):
+class UserAccessMixin(UserPassesTestMixin):
+    """
+    Mixin para permitir que um usuário acesse apenas seu próprio perfil,
+    a menos que seja um administrador (que pode acessar qualquer perfil).
+    """
+    def test_func(self):
+        # Se o usuário é administrador, permite acesso a qualquer perfil
+        if self.request.user.is_admin:
+            return True
+            
+        # Se não é admin, só permite acessar o próprio perfil
+        obj = self.get_object()
+        return obj.id == self.request.user.id
+
+
+class UserDetailView(LoginRequiredMixin, UserAccessMixin, DetailView):
     """
     View para exibir detalhes de um usuário específico.
+    Administradores podem ver qualquer perfil.
+    Outros usuários podem ver apenas seus próprios perfis.
     """
     model = User
     template_name = 'users/user_detail.html'
     context_object_name = 'user_obj'  # Renomeado para evitar conflito com user da request
+    
+    def dispatch(self, request, *args, **kwargs):
+        try:
+            return super().dispatch(request, *args, **kwargs)
+        except Exception as e:
+            # Se houver erro de permissão ou qualquer outro, redireciona para a página inicial
+            messages.error(request, "Você não tem permissão para acessar este perfil.")
+            if request.user.is_admin:
+                return redirect('users:user_list')
+            elif request.user.is_professor:
+                return redirect('courses:dashboard')
+            elif request.user.is_student:
+                return redirect('courses:student:dashboard')
+            else:
+                return redirect('home')
 
 
 class UserCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):

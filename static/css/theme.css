@@ -1,7 +1,7 @@
 /* 
  * CincoCincoJAM 2.0 - Sistema de temas claro/escuro
  * Este arquivo define as variáveis de cores para os modos claro e escuro
- * baseado na preferência do sistema operacional do usuário
+ * e garante a correta aplicação do tema em toda a interface
  */
 
 :root {
@@ -43,7 +43,38 @@
   --hr-color: rgba(0, 0, 0, 0.1);
 }
 
-/* Aplicando tema escuro quando o usuário prefere tema escuro */
+/* Classes específicas para cada tema */
+.theme-light {
+  /* Força as variáveis do tema claro */
+  color-scheme: light;
+  --body-bg: #f8f9fa;
+  --body-color: #212529;
+  --card-bg: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.125);
+  /* Demais variáveis do tema claro... */
+}
+
+.theme-dark {
+  /* Força as variáveis do tema escuro */
+  color-scheme: dark;
+  --body-bg: #121212;
+  --body-color: #e0e0e0;
+  --card-bg: #1e1e1e;
+  --card-border: rgba(255, 255, 255, 0.125);
+  /* Demais variáveis do tema escuro... */
+}
+
+/* Aplica o tema escuro quando o atributo data-bs-theme="dark" está definido */
+[data-bs-theme="dark"] {
+  color-scheme: dark;
+  --body-bg: #121212;
+  --body-color: #e0e0e0;
+  --card-bg: #1e1e1e;
+  --card-border: rgba(255, 255, 255, 0.125);
+  /* Demais variáveis do tema escuro... */
+}
+
+/* Manter para compatibilidade com preferências do sistema */
 @media (prefers-color-scheme: dark) {
   :root {
     /* Variáveis de cores para o modo escuro */
@@ -51,6 +82,8 @@
     --body-color: #e0e0e0;
     --card-bg: #1e1e1e;
     --card-border: rgba(255, 255, 255, 0.125);
+    --card-footer-bg: #1e1e1e;
+    --card-header-bg: #1e1e1e;
     --primary: #3b82f6;
     --primary-hover: #2563eb;
     --secondary: #9ca3af;
@@ -177,6 +210,24 @@ body {
   }
 }
 
+/* Corrige elementos com fundo forçado no tema escuro */
+[data-bs-theme="dark"] .bg-white,
+[data-bs-theme="dark"] .card-footer.bg-white,
+[data-bs-theme="dark"] .card-header.bg-white {
+  background-color: var(--card-bg) !important;
+  color: var(--body-color) !important;
+}
+
+[data-bs-theme="dark"] th {
+  background-color: var(--card-bg) !important;
+  color: var(--body-color) !important;
+}
+
+[data-bs-theme="dark"] .table-light {
+  background-color: var(--card-bg) !important;
+  color: var(--body-color) !important;
+}
+
 /* Navbar */
 .navbar-light {
   background-color: var(--navbar-light-bg);
@@ -212,6 +263,13 @@ body {
   background-color: var(--input-bg);
   border-color: var(--input-border);
   color: var(--input-color);
+}
+
+/* Garante que os inputs tenham fundo branco no tema claro */
+[data-bs-theme="light"] .form-control,
+.theme-light .form-control {
+  background-color: #ffffff !important;
+  color: #212529 !important;
 }
 
 .form-control:focus {

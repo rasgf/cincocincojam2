@@ -16,18 +16,213 @@
     <link rel="stylesheet" href="{% static 'css/main.css' %}">
     <link rel="stylesheet" href="{% static 'css/theme.css' %}">
     
-    <!-- Script para detectar tema do sistema -->
+    <!-- Script para gerenciar temas claro/escuro com dropdown menu -->
     <script>
-        // Detecta preferência de tema do usuário
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            document.documentElement.setAttribute('data-bs-theme', 'dark');
-        } else {
-            document.documentElement.setAttribute('data-bs-theme', 'light');
+        /**
+         * Sistema de temas do CincoCincoJAM 2.0
+         * Implementação com menu dropdown para seleção direta do tema desejado:
+         * - Modo Claro: Força o tema claro em toda a interface
+         * - Modo Escuro: Força o tema escuro em toda a interface
+         * - Modo Automático: Segue a preferência do sistema operacional
+         */
+        
+        // Aplicar o tema imediatamente para evitar flash de tema incorreto
+        (function() {
+            // Obtém o tema salvo ou padrão
+            const savedMode = localStorage.getItem('themeMode') || 'auto';
+            const themeToApply = savedMode === 'auto' ? 
+                (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : 
+                savedMode;
+            
+            // Aplica imediatamente para evitar flash
+            document.documentElement.setAttribute('data-bs-theme', themeToApply);
+        })();
+
+        // Função para verificar a preferência de tema do sistema operacional
+        function getSystemThemePreference() {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         
-        // Monitora mudanças na preferência de tema
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
-            document.documentElement.setAttribute('data-bs-theme', event.matches ? 'dark' : 'light');
+        // Função para obter o modo atual de tema salvo (ou o padrão 'auto')
+        function getCurrentThemeMode() {
+            return localStorage.getItem('themeMode') || 'auto';
+        }
+        
+        // Função para definir o tema diretamente - chamada pelas opções do dropdown
+        function setTheme(mode) {
+            if (!['light', 'dark', 'auto'].includes(mode)) {
+                console.error('Modo de tema inválido:', mode);
+                return;
+            }
+            
+            // Salva a preferência do usuário
+            localStorage.setItem('themeMode', mode);
+            console.log('Tema definido para:', mode);
+            
+            // Aplica o tema e atualiza a interface
+            applyTheme(mode);
+            updateThemeIcon(mode);
+        }
+        
+        // Função para aplicar o estilo do tema a elementos específicos que podem não seguir o tema global
+        function applyThemeToSpecificElements(theme) {
+            // 1. Forçar cores em inputs e formulários que podem não respeitar o tema
+            const isDark = (theme === 'dark');
+            
+            // Estilo personalizado para garantir que tudo siga o tema
+            const styleEl = document.getElementById('theme-override-styles') || document.createElement('style');
+            if (!styleEl.id) {
+                styleEl.id = 'theme-override-styles';
+                document.head.appendChild(styleEl);
+            }
+            
+            // Regras CSS específicas para corrigir elementos que não seguem o tema
+            if (isDark) {
+                styleEl.textContent = `
+                    /* Override para elementos de formulário em modo escuro */
+                    [data-bs-theme="dark"] input, 
+                    [data-bs-theme="dark"] textarea, 
+                    [data-bs-theme="dark"] select,
+                    [data-bs-theme="dark"] .form-control,
+                    [data-bs-theme="dark"] .form-select,
+                    [data-bs-theme="dark"] .btn-outline-secondary,
+                    [data-bs-theme="dark"] .card,
+                    [data-bs-theme="dark"] .modal-content {
+                        background-color: #2b2b2b !important;
+                        color: #e0e0e0 !important;
+                        border-color: #444 !important;
+                    }
+                    
+                    [data-bs-theme="dark"] .btn-secondary,
+                    [data-bs-theme="dark"] .btn-light,
+                    [data-bs-theme="dark"] .btn-outline-secondary {
+                        background-color: #3a3a3a !important;
+                        color: #e0e0e0 !important;
+                        border-color: #555 !important;
+                    }
+                    
+                    [data-bs-theme="dark"] .form-label,
+                    [data-bs-theme="dark"] label {
+                        color: #e0e0e0 !important;
+                    }
+                    
+                    [data-bs-theme="dark"] .table-hover tbody tr:hover {
+                        background-color: rgba(255, 255, 255, 0.1) !important;
+                    }
+                    
+                    /* Corrige itens específicos que podem não mudar de cor */
+                    [data-bs-theme="dark"] .dropdown-menu {
+                        background-color: #333 !important;
+                        border-color: #555 !important;
+                    }
+                    
+                    [data-bs-theme="dark"] .dropdown-item {
+                        color: #e0e0e0 !important;
+                    }
+                    
+                    [data-bs-theme="dark"] .dropdown-item:hover {
+                        background-color: #444 !important;
+                    }
+                `;
+            } else {
+                styleEl.textContent = '';
+            }
+        }
+        
+        // Função para aplicar tema específico ao documento HTML
+        function applyThemeToDocument(theme) {
+            // Define o atributo data-bs-theme no elemento HTML
+            document.documentElement.setAttribute('data-bs-theme', theme);
+            
+            // Força a aplicação das classes de tema em elementos específicos
+            document.body.classList.remove('theme-light', 'theme-dark');
+            document.body.classList.add('theme-' + theme);
+            
+            // Aplica estilos específicos para elementos que não respeitam o tema global
+            applyThemeToSpecificElements(theme);
+            
+            console.log('Tema aplicado com sucesso:', theme);
+        }
+        
+        // Função principal para resolver e aplicar o tema correto
+        function applyTheme(mode) {
+            let themeToApply;
+            
+            // Determina qual tema aplicar com base no modo
+            if (mode === 'auto') {
+                // No modo automático, segue a preferência do sistema
+                themeToApply = getSystemThemePreference();
+                console.log('Modo automático ativado - usando tema do sistema:', themeToApply);
+            } else {
+                // Nos modos explícitos, aplica diretamente
+                themeToApply = mode;
+                console.log('Modo manual ativado:', mode);
+            }
+            
+            // Aplica o tema resolvido
+            applyThemeToDocument(themeToApply);
+            
+            return themeToApply;
+        }
+        
+        // Função para atualizar o ícone do dropdown conforme o modo atual
+        function updateThemeIcon(mode) {
+            // Obtém referência ao ícone atual
+            const currentThemeIcon = document.getElementById('theme-icon-current');
+            if (!currentThemeIcon) {
+                console.error('Erro: Ícone de tema atual não encontrado!');
+                return;
+            }
+            
+            // Atualiza o ícone com base no modo
+            currentThemeIcon.className = ''; // Limpa classes existentes
+            if (mode === 'light') {
+                currentThemeIcon.className = 'fas fa-sun';
+            } else if (mode === 'dark') {
+                currentThemeIcon.className = 'fas fa-moon';
+            } else { // auto
+                currentThemeIcon.className = 'fas fa-adjust';
+            }
+            
+            // Destaca visualmente a opção selecionada no dropdown (será aplicado quando o dropdown estiver aberto)
+            document.querySelectorAll('#themeDropdown + .dropdown-menu .dropdown-item').forEach(item => {
+                item.classList.remove('active', 'bg-primary', 'text-white');
+                
+                // Verifica qual item está selecionado atualmente
+                const itemMode = item.getAttribute('onclick').includes("'light'") ? 'light' : 
+                                item.getAttribute('onclick').includes("'dark'") ? 'dark' : 'auto';
+                
+                if (itemMode === mode) {
+                    item.classList.add('active', 'bg-primary', 'text-white');
+                }
+            });
+            
+            console.log('Ícone atualizado para o modo:', mode);
+        }
+        
+        // Função de inicialização imediata
+        (function() {
+            const initialMode = getCurrentThemeMode();
+            const initialTheme = applyTheme(initialMode);
+            console.log('Sistema de temas inicializado - Modo:', initialMode, '/ Tema aplicado:', initialTheme);
+        })();
+        
+        // Configuração final quando o DOM estiver completamente carregado
+        document.addEventListener('DOMContentLoaded', function() {
+            // Atualiza o ícone para corresponder ao modo atual
+            updateThemeIcon(getCurrentThemeMode());
+            
+            // Configura um listener para mudanças na preferência do sistema
+            if (window.matchMedia) {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                    // Se estiver no modo automático, reaplica o tema conforme mudança do sistema
+                    if (getCurrentThemeMode() === 'auto') {
+                        applyTheme('auto');
+                    }
+                });
+            }
+            
+            console.log('Sistema de temas configurado e pronto para uso.');
         });
     </script>
     
@@ -85,11 +280,11 @@
                                 {% if user.is_admin %}
                                     <li><a class="dropdown-item" href="{% url 'users:user_detail' user.id %}">Perfil</a></li>
                                 {% elif user.is_professor %}
-                                    <li><a class="dropdown-item" href="#">Perfil</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'users:user_detail' user.id %}">Perfil</a></li>
                                 {% elif user.is_student %}
-                                    <li><a class="dropdown-item" href="#">Perfil</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'users:user_detail' user.id %}">Perfil</a></li>
                                 {% else %}
-                                    <li><a class="dropdown-item" href="#">Perfil</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'users:user_detail' user.id %}">Perfil</a></li>
                                 {% endif %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'logout' %}">Sair</a></li>
@@ -100,6 +295,31 @@
                             <a class="nav-link" href="{% url 'login' %}">Entrar</a>
                         </li>
                     {% endif %}
+                    
+                    <!-- Menu dropdown para seleção de tema -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="themeDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i id="theme-icon-current" class="fas fa-adjust"></i>
+                            <span class="d-none d-md-inline ms-1">Tema</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown">
+                            <li>
+                                <a class="dropdown-item" href="javascript:void(0);" onclick="setTheme('light')">
+                                    <i class="fas fa-sun me-2"></i> Modo Claro
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="javascript:void(0);" onclick="setTheme('dark')">
+                                    <i class="fas fa-moon me-2"></i> Modo Escuro
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="javascript:void(0);" onclick="setTheme('auto')">
+                                    <i class="fas fa-adjust me-2"></i> Automático (Sistema)
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
                 </ul>
             </div>
         </div>
