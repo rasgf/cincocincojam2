@@ -33,3 +33,39 @@ class Message(models.Model):
     
     def __str__(self):
         return f"{self.get_sender_display()}: {self.content[:50]}..."
+
+class AssistantBehavior(models.Model):
+    """
+    Modelo para armazenar orientações de comportamento do assistente virtual.
+    Permite que administradores definam como o assistente deve se comportar e responder.
+    """
+    name = models.CharField(max_length=100, verbose_name="Nome do perfil")
+    is_active = models.BooleanField(default=True, verbose_name="Ativo")
+    system_prompt = models.TextField(
+        verbose_name="Orientações de comportamento", 
+        help_text="Instruções que definem o comportamento do assistente. Este texto funcionará como um 'prompt de sistema' para o modelo de IA."
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Criado em")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Atualizado em")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name="created_behaviors",
+        verbose_name="Criado por"
+    )
+    
+    class Meta:
+        verbose_name = "Comportamento do Assistente"
+        verbose_name_plural = "Comportamentos do Assistente"
+        ordering = ['-is_active', 'name']
+    
+    def __str__(self):
+        status = "Ativo" if self.is_active else "Inativo"
+        return f"{self.name} ({status})"
+    
+    @classmethod
+    def get_active_behavior(cls):
+        """Retorna o comportamento ativo atual, ou None se não existir"""
+        return cls.objects.filter(is_active=True).first()

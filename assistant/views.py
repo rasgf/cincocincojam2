@@ -1,15 +1,13 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
 import json
 import uuid
 import logging
-from django.shortcuts import render
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 
-from .models import ChatSession, Message
+from .models import ChatSession, Message, AssistantBehavior
 from .openai_manager import OpenAIManager
 
 # Inicializa o logger
@@ -192,3 +190,102 @@ def chat_history(request, session_id=None):
     # Se não houver session_id ou a sessão não existir, exibe todas as sessões do usuário
     sessions = ChatSession.objects.filter(user=request.user).order_by('-updated_at')
     return render(request, 'assistant/sessions.html', {'sessions': sessions})
+
+def is_admin_or_staff(user):
+    """Verifica se o usuário é admin ou staff"""
+    return user.is_authenticated and (user.is_superuser or user.is_staff or user.user_type == 'ADMIN')
+
+@login_required
+def behavior_config(request):
+    """
+    View para configurar o comportamento do assistente IA.
+    Permite criar ou editar o comportamento ativo sem precisar usar o admin do Django.
+    """
+    # Verifica se há um ID para editar (passado via query string)
+    edit_id = request.GET.get('edit')
+    
+    # Verifica se o usuário pode editar (apenas admin ou staff)
+    can_edit = is_admin_or_staff(request.user)
+    
+    if edit_id and can_edit:
+        # Se foi solicitada a edição de um comportamento específico e usuário tem permissão
+        behavior = get_object_or_404(AssistantBehavior, id=edit_id)
+    else:
+        # Busca o comportamento ativo ou cria um padrão se não existir
+        behavior = AssistantBehavior.get_active_behavior()
+    
+    # Se não existir comportamento ativo, cria um objeto temporário (não salva no banco)
+    if not behavior:
+        behavior = AssistantBehavior(
+            name="Comportamento Padrão",
+            is_active=True,
+            system_prompt="""Você é um assistente virtual para o CincoCincoJAM, uma plataforma que facilita a gestão de 
+                      eventos e transmissões ao vivo, além de oferecer cursos online. Seja prestativo, 
+                      educado e conciso em suas respostas.
+                      
+                      Quando o usuário fizer perguntas sobre a plataforma, você deve fornecer informações 
+                      precisas e úteis. Se não souber a resposta para alguma pergunta específica sobre o sistema, 
+                      seja honesto e sugira que o usuário entre em contato com o suporte."""
+        )
+    
+    # Lista todos os comportamentos para exibir no histórico (apenas para admins e staff)
+    all_behaviors = AssistantBehavior.objects.all().order_by('-updated_at') if can_edit else []
+    
+    return render(request, 'assistant/behavior_config.html', {
+        'behavior': behavior,
+        'all_behaviors': all_behaviors,
+        'can_edit': can_edit,
+    })
+
+@login_required
+@user_passes_test(is_admin_or_staff)
+def save_behavior(request):
+    """
+    View para salvar o comportamento do assistente IA.
+    """
+    if request.method == 'POST':
+        behavior_id = request.POST.get('behavior_id')
+        name = request.POST.get('name')
+        system_prompt = request.POST.get('system_prompt')
+        is_active = bool(request.POST.get('is_active', False))
+        
+        if not name or not system_prompt:
+            messages.error(request, 'Todos os campos são obrigatórios.')
+            return redirect('assistant:behavior_config')
+        
+        # Se um ID foi fornecido, tenta atualizar o comportamento existente
+        if behavior_id and behavior_id != 'new':
+            try:
+                behavior = AssistantBehavior.objects.get(id=behavior_id)
+                behavior.name = name
+                behavior.system_prompt = system_prompt
+                behavior.is_active = is_active
+                
+                # Se este comportamento está sendo ativado, desativa todos os outros
+                if is_active:
+                    AssistantBehavior.objects.exclude(id=behavior.id).update(is_active=False)
+                    
+                behavior.save()
+                messages.success(request, 'Comportamento do assistente atualizado com sucesso.')
+            except AssistantBehavior.DoesNotExist:
+                messages.error(request, 'Comportamento não encontrado.')
+        else:
+            # Cria um novo comportamento
+            behavior = AssistantBehavior(
+                name=name,
+                system_prompt=system_prompt,
+                is_active=is_active,
+                created_by=request.user
+            )
+            
+            # Se este comportamento está sendo ativado, desativa todos os outros
+            if is_active:
+                AssistantBehavior.objects.all().update(is_active=False)
+                
+            behavior.save()
+            messages.success(request, 'Novo comportamento do assistente criado com sucesso.')
+        
+        return redirect('assistant:behavior_config')
+    
+    # Se não for um POST, redireciona para a página de configuração
+    return redirect('assistant:behavior_config')

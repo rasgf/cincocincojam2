@@ -10,4 +10,6 @@ urlpatterns = [
     path('api/message/history/', views.get_message_history, name='get_message_history'),
     path('history/', views.chat_history, name='history'),
     path('history/<str:session_id>/', views.chat_history, name='history_detail'),
+    path('config/', views.behavior_config, name='behavior_config'),
+    path('config/save/', views.save_behavior, name='save_behavior'),
 ]

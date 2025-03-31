@@ -291,6 +291,11 @@
                                 {% else %}
                                     <li><a class="dropdown-item" href="{% url 'users:user_detail' user.id %}">Perfil</a></li>
                                 {% endif %}
+                                
+                                {% if user.is_admin or user.is_staff %}
+                                    <li><a class="dropdown-item" href="{% url 'assistant:behavior_config' %}">Assistente IA</a></li>
+                                {% endif %}
+                                
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'logout' %}">Sair</a></li>
                             </ul>
@@ -300,6 +305,13 @@
                             <a class="nav-link" href="{% url 'login' %}">Entrar</a>
                         </li>
                     {% endif %}
+                    
+                    <!-- Link para configuração do Assistente IA -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'assistant:behavior_config' %}" title="Configurar Assistente IA">
+                            <i class="fas fa-robot"></i>
+                        </a>
+                    </li>
                     
                     <!-- Menu dropdown para seleção de tema -->
                     <li class="nav-item dropdown">

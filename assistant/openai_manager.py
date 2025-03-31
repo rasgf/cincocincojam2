@@ -9,6 +9,7 @@ from openai import OpenAI
 from django.conf import settings
 
 from .db_manager import DatabaseManager
+from .models import AssistantBehavior
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,70 @@ class OpenAIManager:
         # Inicializa o gerenciador de banco de dados
         self.db_manager = DatabaseManager()
     
+    def _get_system_prompt(self):
+        """
+        Obtém o prompt de sistema das orientações de comportamento definidas pelo administrador
+        
+        Returns:
+            Texto com o prompt de sistema
+        """
+        # Tenta obter o comportamento ativo do banco de dados
+        try:
+            behavior = AssistantBehavior.get_active_behavior()
+            
+            if behavior and behavior.system_prompt:
+                # Adiciona instruções sobre como acessar o banco de dados
+                db_instructions = """
+                Você tem acesso a informações do banco de dados sobre cursos, aulas, matrículas e usuários da plataforma.
+                Quando o usuário fizer perguntas sobre esses temas, você deve fornecer informações precisas.
+                
+                Para acessar o banco de dados, você pode usar as funções especiais nos seguintes formatos:
+                
+                - Para buscar informações sobre um curso: !DB:COURSE:id=X ou !DB:COURSE:slug=X ou !DB:COURSE:title=X
+                - Para buscar cursos por termo: !DB:SEARCH_COURSES:query=X
+                - Para listar aulas de um curso: !DB:LESSONS:course_id=X ou !DB:LESSONS:course_slug=X
+                - Para verificar matrícula de um aluno: !DB:ENROLLMENT:email=X:course_id=Y
+                - Para listar matrículas de um aluno: !DB:USER_ENROLLMENTS:email=X
+                - Para obter estatísticas da plataforma: !DB:STATS
+                
+                Por exemplo, se o usuário perguntar "Quais cursos vocês oferecem sobre Python?", você pode responder:
+                "Deixe-me verificar os cursos disponíveis sobre Python: !DB:SEARCH_COURSES:query=Python".
+                
+                O sistema substituirá esses comandos pelos dados reais automaticamente antes de mostrar sua resposta ao usuário.
+                No entanto, seja discreto ao usar esses comandos. Não explique ao usuário que está consultando o banco de dados.
+                """
+                
+                # Retorna o prompt personalizado + instruções do banco de dados
+                return behavior.system_prompt + "\n\n" + db_instructions
+        except Exception as e:
+            logger.error(f"Erro ao obter comportamento do assistente: {str(e)}")
+            
+        # Prompt padrão caso não exista comportamento definido ou ocorra erro
+        return """Você é um assistente virtual para o CincoCincoJAM, uma plataforma que facilita a gestão de 
+              eventos e transmissões ao vivo, além de oferecer cursos online. Seja prestativo, educado e conciso 
+              em suas respostas.
+              
+              Você tem acesso a informações do banco de dados sobre cursos, aulas, matrículas e usuários da plataforma.
+              Quando o usuário fizer perguntas sobre esses temas, você deve fornecer informações precisas.
+              
+              Para acessar o banco de dados, você pode usar as funções especiais nos seguintes formatos:
+              
+              - Para buscar informações sobre um curso: !DB:COURSE:id=X ou !DB:COURSE:slug=X ou !DB:COURSE:title=X
+              - Para buscar cursos por termo: !DB:SEARCH_COURSES:query=X
+              - Para listar aulas de um curso: !DB:LESSONS:course_id=X ou !DB:LESSONS:course_slug=X
+              - Para verificar matrícula de um aluno: !DB:ENROLLMENT:email=X:course_id=Y
+              - Para listar matrículas de um aluno: !DB:USER_ENROLLMENTS:email=X
+              - Para obter estatísticas da plataforma: !DB:STATS
+              
+              Por exemplo, se o usuário perguntar "Quais cursos vocês oferecem sobre Python?", você pode responder:
+              "Deixe-me verificar os cursos disponíveis sobre Python: !DB:SEARCH_COURSES:query=Python".
+              
+              O sistema substituirá esses comandos pelos dados reais automaticamente antes de mostrar sua resposta ao usuário.
+              No entanto, seja discreto ao usar esses comandos. Não explique ao usuário que está consultando o banco de dados.
+              
+              Se você não tiver a informação necessária ou não puder realizar a consulta, seja honesto e sugira que o 
+              usuário entre em contato com o suporte."""
+    
     def format_chat_history(self, messages: List[Dict[str, Any]]) -> List[Dict[str, str]]:
         """
         Formata o histórico de mensagens para o formato esperado pela API da OpenAI
@@ -44,32 +109,10 @@ class OpenAIManager:
         formatted_messages = []
         
         # Adicionar um sistema de mensagem para definir o comportamento do assistente
+        # usando as orientações configuradas pelo administrador
         formatted_messages.append({
             "role": "system", 
-            "content": """Você é um assistente virtual para o CincoCincoJAM, uma plataforma que facilita a gestão de 
-                      eventos e transmissões ao vivo, além de oferecer cursos online. Seja prestativo, educado e conciso 
-                      em suas respostas.
-                      
-                      Você tem acesso a informações do banco de dados sobre cursos, aulas, matrículas e usuários da plataforma.
-                      Quando o usuário fizer perguntas sobre esses temas, você deve fornecer informações precisas.
-                      
-                      Para acessar o banco de dados, você pode usar as funções especiais nos seguintes formatos:
-                      
-                      - Para buscar informações sobre um curso: !DB:COURSE:id=X ou !DB:COURSE:slug=X ou !DB:COURSE:title=X
-                      - Para buscar cursos por termo: !DB:SEARCH_COURSES:query=X
-                      - Para listar aulas de um curso: !DB:LESSONS:course_id=X ou !DB:LESSONS:course_slug=X
-                      - Para verificar matrícula de um aluno: !DB:ENROLLMENT:email=X:course_id=Y
-                      - Para listar matrículas de um aluno: !DB:USER_ENROLLMENTS:email=X
-                      - Para obter estatísticas da plataforma: !DB:STATS
-                      
-                      Por exemplo, se o usuário perguntar "Quais cursos vocês oferecem sobre Python?", você pode responder:
-                      "Deixe-me verificar os cursos disponíveis sobre Python: !DB:SEARCH_COURSES:query=Python".
-                      
-                      O sistema substituirá esses comandos pelos dados reais automaticamente antes de mostrar sua resposta ao usuário.
-                      No entanto, seja discreto ao usar esses comandos. Não explique ao usuário que está consultando o banco de dados.
-                      
-                      Se você não tiver a informação necessária ou não puder realizar a consulta, seja honesto e sugira que o 
-                      usuário entre em contato com o suporte."""
+            "content": self._get_system_prompt()
         })
         
         # Adicionar o histórico de mensagens (até um limite de 10 mensagens para controlar o contexto)
