@@ -86,6 +86,20 @@ def send_message(request):
             # Formata o histórico para a API da OpenAI
             formatted_messages = openai_manager.format_chat_history(list(message_history))
             
+            # Adiciona contexto sobre o usuário autenticado
+            system_message = formatted_messages[0]
+            user_context = ""
+            if request.user.is_authenticated:
+                user_context = f"""
+                O usuário atual está autenticado com o email {request.user.email} e username {request.user.username}.
+                Tipo de usuário: {request.user.user_type}.
+                
+                Ao responder perguntas sobre cursos matriculados ou informações pessoais, você pode usar este email
+                para consultar o banco de dados diretamente.
+                """
+                
+                system_message["content"] += user_context
+            
             # Obtém a resposta da OpenAI
             bot_response = openai_manager.get_response(formatted_messages)
             
