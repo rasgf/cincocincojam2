@@ -93,6 +93,37 @@ class ProfessorFinancialDashboardView(LoginRequiredMixin, ProfessorRequiredMixin
         # Transações recentes
         context['recent_transactions'] = transactions.order_by('-created_at')[:5]
         
+        # Notas fiscais (nova seção)
+        try:
+            from invoices.models import Invoice
+            # Contagem de notas fiscais por status
+            invoices = Invoice.objects.filter(transaction__enrollment__course__professor=professor)
+            context['invoices_count'] = invoices.count()
+            
+            # Notas por status
+            context['invoices_approved'] = invoices.filter(status='approved').count()
+            context['invoices_pending'] = invoices.filter(status='pending').count()
+            context['invoices_processing'] = invoices.filter(status='processing').count()
+            context['invoices_error'] = invoices.filter(status='error').count()
+            
+            # Notas fiscais recentes (últimas 5)
+            context['recent_invoices'] = invoices.order_by('-created_at')[:5]
+            
+            # Verificar se o professor possui configuração fiscal
+            from invoices.models import CompanyConfig
+            try:
+                company_config = CompanyConfig.objects.get(user=professor)
+                context['has_company_config'] = True
+                context['company_config_complete'] = company_config.is_complete()
+                context['company_config_enabled'] = company_config.enabled
+            except CompanyConfig.DoesNotExist:
+                context['has_company_config'] = False
+                context['company_config_complete'] = False
+                context['company_config_enabled'] = False
+        except ImportError:
+            # Caso o aplicativo invoices não esteja disponível
+            pass
+        
         return context
 
 
@@ -110,6 +141,13 @@ class ProfessorTransactionListView(LoginRequiredMixin, ProfessorRequiredMixin, L
         queryset = PaymentTransaction.objects.filter(
             enrollment__course__professor=self.request.user
         ).select_related('enrollment', 'enrollment__student', 'enrollment__course')
+        
+        # Adicionar prefetch_related para carregar as notas fiscais associadas
+        try:
+            from invoices.models import Invoice
+            queryset = queryset.prefetch_related('invoices')
+        except ImportError:
+            pass  # O app de invoices pode não estar disponível
         
         # Filtro por curso
         course_id = self.request.GET.get('course')

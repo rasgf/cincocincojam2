@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'courses',
     'payments',
     'assistant',
+    'invoices',
 ]
 
 MIDDLEWARE = [
@@ -184,3 +185,58 @@ OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
 OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-4o-mini')
 OPENAI_MAX_TOKENS = int(env('OPENAI_MAX_TOKENS', default=150))
 OPENAI_TEMPERATURE = float(env('OPENAI_TEMPERATURE', default=0.7))
+
+# Configurações do FocusNFe
+FOCUS_NFE_API_KEY = env('FOCUS_NFE_API_KEY', default='')
+FOCUS_NFE_SANDBOX = env.bool('FOCUS_NFE_SANDBOX', default=True)
+FOCUS_NFE_TEST_MODE = env.bool('FOCUS_NFE_TEST_MODE', default=False)
+FOCUS_NFE_SIMULATOR = None  # Será inicializado quando o modo de teste for ativado
+
+# Configurações da API NFE.io
+NFEIO_API_KEY = env('NFEIO_API_KEY', default='')
+NFEIO_COMPANY_ID = env('NFEIO_COMPANY_ID', default='')
+NFEIO_ENVIRONMENT = env('NFEIO_ENVIRONMENT', default='Development')
+
+# Configuração de logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'invoice_debug.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'invoices': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
+
+# Garantir que o diretório de logs existe
+os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)

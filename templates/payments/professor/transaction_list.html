@@ -9,6 +9,9 @@
         <a href="{% url 'payments:professor_dashboard' %}" class="btn btn-outline-primary">
             <i class="fas fa-chart-line"></i> Dashboard Financeiro
         </a>
+        <a href="{% url 'invoices:company_settings' %}" class="btn btn-outline-secondary ms-2">
+            <i class="fas fa-file-invoice"></i> Configurações Fiscais
+        </a>
     </div>
 </div>
 
@@ -78,6 +81,7 @@
                             <th class="text-end">Valor</th>
                             <th>Status</th>
                             <th>Método</th>
+                            <th>Nota Fiscal</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -102,6 +106,72 @@
                                 {% endif %}
                             </td>
                             <td>{{ transaction.payment_method|default:"--" }}</td>
+                            <td>
+                                {% if transaction.invoices.all|length > 0 %}
+                                    {% with invoice=transaction.invoices.all.0 %}
+                                    {% if invoice.status == 'approved' %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i> Emitida
+                                        </span>
+                                        {% if invoice.focus_pdf_url %}
+                                            <a href="{{ invoice.focus_pdf_url }}" target="_blank" class="btn btn-sm btn-outline-primary ms-2" title="Visualizar PDF">
+                                                <i class="fas fa-file-pdf"></i>
+                                            </a>
+                                        {% endif %}
+                                        <a href="{% url 'invoices:delete' invoice.id %}" class="btn btn-sm btn-outline-danger ms-2" title="Excluir (apenas teste)">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                    {% elif invoice.status == 'processing' %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-spinner fa-spin me-1"></i> Processando
+                                        </span>
+                                        <button class="btn btn-sm btn-outline-secondary ms-2 check-status-btn" 
+                                                data-invoice-id="{{ invoice.id }}"
+                                                title="Verificar Status">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                        <a href="{% url 'invoices:delete' invoice.id %}" class="btn btn-sm btn-outline-danger ms-2" title="Excluir (apenas teste)">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                    {% elif invoice.status == 'error' %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-exclamation-circle me-1"></i> Erro
+                                        </span>
+                                        <a href="{% url 'invoices:retry' invoice.id %}" class="btn btn-sm btn-outline-danger ms-2" title="Tentar Novamente">
+                                            <i class="fas fa-redo-alt"></i>
+                                        </a>
+                                        <a href="{% url 'invoices:delete' invoice.id %}" class="btn btn-sm btn-outline-danger ms-2" title="Excluir (apenas teste)">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                    {% elif invoice.status == 'cancelling' %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-spinner fa-spin me-1"></i> Cancelando
+                                        </span>
+                                        <a href="{% url 'invoices:delete' invoice.id %}" class="btn btn-sm btn-outline-danger ms-2" title="Excluir (apenas teste)">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                    {% elif invoice.status == 'cancelled' %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-ban me-1"></i> Cancelada
+                                        </span>
+                                        <a href="{% url 'invoices:delete' invoice.id %}" class="btn btn-sm btn-outline-danger ms-2" title="Excluir (apenas teste)">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                    {% else %}
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-clock me-1"></i> Pendente
+                                        </span>
+                                        <a href="{% url 'invoices:delete' invoice.id %}" class="btn btn-sm btn-outline-danger ms-2" title="Excluir (apenas teste)">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </a>
+                                    {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <a href="{% url 'invoices:emit' transaction.id %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-file-invoice me-1"></i> Emitir NFe
+                                    </a>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -161,4 +231,112 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Adiciona event listeners para todos os botões de verificação de status
+    document.addEventListener('DOMContentLoaded', function() {
+        const statusButtons = document.querySelectorAll('.check-status-btn');
+        statusButtons.forEach(button => {
+            button.addEventListener('click', function(event) {
+                const invoiceId = this.getAttribute('data-invoice-id');
+                checkInvoiceStatus(invoiceId, this);
+            });
+        });
+    });
+
+    function checkInvoiceStatus(invoiceId, button) {
+        const originalHtml = button.innerHTML;
+        
+        // Log detalhado no console
+        console.log(`%c[NFe Status Check] %cIniciando verificação para nota fiscal ID: ${invoiceId}`, 
+            'color: #0066cc; font-weight: bold', 'color: black');
+        
+        // Mostra spinner enquanto carrega
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        button.disabled = true;
+        
+        // Faz a requisição AJAX para verificar o status
+        fetch(`/invoices/status/${invoiceId}/`)
+            .then(response => {
+                console.log(`%c[NFe Status Check] %cResposta HTTP: ${response.status} ${response.statusText}`,
+                    'color: #0066cc; font-weight: bold', 'color: black');
+                return response.json();
+            })
+            .then(data => {
+                // Log detalhado da resposta
+                console.log(`%c[NFe Status Check] %cDados recebidos:`, 
+                    'color: #0066cc; font-weight: bold', 'color: black');
+                console.log(data);
+                
+                // Detectar discrepância entre status no backend e UI
+                const statusElement = button.closest('td').querySelector('.badge');
+                const displayedStatus = statusElement ? statusElement.textContent.trim() : 'Desconhecido';
+                
+                console.log(`%c[NFe Status Check] %cStatus exibido na UI: ${displayedStatus}`, 
+                    'color: #0066cc; font-weight: bold', 'color: black');
+                console.log(`%c[NFe Status Check] %cStatus real no backend: ${data.status}`, 
+                    'color: #0066cc; font-weight: bold', 'color: black');
+                
+                if (displayedStatus !== data.status) {
+                    console.warn(`%c[NFe Status Check] %cDiscrepância de status detectada! UI: ${displayedStatus} vs Backend: ${data.status}`, 
+                        'color: #ff6600; font-weight: bold', 'color: black');
+                }
+                
+                // Verificar informações adicionais
+                if (data.focus_status) {
+                    console.log(`%c[NFe Status Check] %cStatus na API NFE.io: ${data.focus_status}`, 
+                        'color: #0066cc; font-weight: bold', 'color: black');
+                }
+                
+                if (data.error_message) {
+                    console.error(`%c[NFe Status Check] %cMensagem de erro: ${data.error_message}`, 
+                        'color: #cc0000; font-weight: bold', 'color: black');
+                }
+                
+                if (data.status === 'approved') {
+                    console.log(`%c[NFe Status Check] %cNota aprovada! Recarregando página...`, 
+                        'color: #00aa00; font-weight: bold', 'color: black');
+                    // Recarrega a página para mostrar o status atualizado
+                    window.location.reload();
+                } else {
+                    // Mostra informações mais detalhadas em um alerta
+                    let statusInfo = `Status atual: ${data.status}\n`;
+                    
+                    if (data.focus_status) {
+                        statusInfo += `Status na API NFE.io: ${data.focus_status}\n`;
+                    }
+                    
+                    if (data.message) {
+                        statusInfo += `Mensagem: ${data.message}\n`;
+                    }
+                    
+                    if (data.error_message) {
+                        statusInfo += `Erro: ${data.error_message}\n`;
+                    }
+                    
+                    // Restaura o botão e mostra uma mensagem
+                    button.innerHTML = originalHtml;
+                    button.disabled = false;
+                    
+                    // Alerta mais informativo
+                    alert(statusInfo);
+                    
+                    // Atualizar visualmente o status se for erro
+                    if (data.status === 'error' && statusElement) {
+                        statusElement.className = 'badge bg-danger';
+                        statusElement.textContent = 'Erro';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error(`%c[NFe Status Check] %cErro na verificação: ${error}`, 
+                    'color: #cc0000; font-weight: bold', 'color: black');
+                button.innerHTML = originalHtml;
+                button.disabled = false;
+                alert('Ocorreu um erro ao verificar o status da nota fiscal.');
+            });
+    }
+</script>
 {% endblock %}

@@ -56,6 +56,9 @@ urlpatterns = [
     # Assistant
     path('assistant/', include('assistant.urls')),
     
+    # Invoices
+    path('invoices/', include('invoices.urls')),
+    
     # Home page
     path('', TemplateView.as_view(template_name='home.html'), name='home'),
 ]

@@ -122,6 +122,140 @@
     </div>
 </div>
 
+<!-- Notas Fiscais - Nova seção -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Notas Fiscais</h5>
+                <div>
+                    {% if has_company_config %}
+                        {% if company_config_complete and company_config_enabled %}
+                            <span class="badge bg-success">Configuração Completa</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Configuração Incompleta</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge bg-danger">Não Configurado</span>
+                    {% endif %}
+                    <a href="{% url 'invoices:company_settings' %}" class="btn btn-sm btn-outline-primary ms-2">
+                        <i class="fas fa-cog"></i> Configurações Fiscais
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if invoices_count %}
+                    <div class="row mb-4">
+                        <!-- Estatísticas de Notas Fiscais -->
+                        <div class="col-md-3">
+                            <div class="card shadow-sm">
+                                <div class="card-body text-center p-3">
+                                    <div class="h1 mb-1">{{ invoices_count }}</div>
+                                    <p class="mb-0">Total de Notas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card shadow-sm">
+                                <div class="card-body text-center p-3 bg-success bg-opacity-10">
+                                    <div class="h1 mb-1 text-success">{{ invoices_approved }}</div>
+                                    <p class="mb-0">Emitidas</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card shadow-sm">
+                                <div class="card-body text-center p-3 bg-warning bg-opacity-10">
+                                    <div class="h1 mb-1 text-warning">{{ invoices_processing|add:invoices_pending }}</div>
+                                    <p class="mb-0">Em Processamento</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card shadow-sm">
+                                <div class="card-body text-center p-3 bg-danger bg-opacity-10">
+                                    <div class="h1 mb-1 text-danger">{{ invoices_error }}</div>
+                                    <p class="mb-0">Com Erro</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tabela de Notas Fiscais Recentes -->
+                    <h6 class="border-bottom pb-2 mb-3">Notas Fiscais Recentes</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Data</th>
+                                    <th>Aluno</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in recent_invoices %}
+                                <tr>
+                                    <td>{{ invoice.id }}</td>
+                                    <td>{{ invoice.created_at|date:"d/m/Y H:i" }}</td>
+                                    <td>{{ invoice.transaction.enrollment.student.email }}</td>
+                                    <td>R$ {{ invoice.transaction.amount|floatformat:2 }}</td>
+                                    <td>
+                                        {% if invoice.status == 'approved' %}
+                                            <span class="badge bg-success">Emitida</span>
+                                        {% elif invoice.status == 'processing' %}
+                                            <span class="badge bg-warning text-dark">Processando</span>
+                                        {% elif invoice.status == 'pending' %}
+                                            <span class="badge bg-info">Pendente</span>
+                                        {% elif invoice.status == 'cancelled' %}
+                                            <span class="badge bg-secondary">Cancelada</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Erro</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if invoice.status == 'approved' and invoice.focus_pdf_url %}
+                                            <a href="{{ invoice.focus_pdf_url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Visualizar PDF">
+                                                <i class="fas fa-file-pdf"></i>
+                                            </a>
+                                        {% elif invoice.status == 'processing' %}
+                                            <a href="{% url 'invoices:check_status' invoice.id %}" class="btn btn-sm btn-outline-secondary" title="Verificar Status">
+                                                <i class="fas fa-sync-alt"></i>
+                                            </a>
+                                        {% elif invoice.status == 'error' %}
+                                            <a href="{% url 'invoices:retry' invoice.id %}" class="btn btn-sm btn-outline-danger" title="Tentar Novamente">
+                                                <i class="fas fa-redo-alt"></i>
+                                            </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="text-end mt-3">
+                        <a href="{% url 'payments:professor_transactions' %}" class="btn btn-primary">
+                            <i class="fas fa-list"></i> Ver Todas Transações
+                        </a>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <p><i class="fas fa-info-circle me-2"></i> Você ainda não emitiu nenhuma nota fiscal.</p>
+                        
+                        {% if has_company_config and company_config_complete and company_config_enabled %}
+                            <p class="mb-0">Para emitir uma nota fiscal, vá para a <a href="{% url 'payments:professor_transactions' %}">lista de transações</a> e clique no botão "Emitir NFe" ao lado de uma transação.</p>
+                        {% else %}
+                            <p class="mb-0">Para começar a emitir notas fiscais, primeiro <a href="{% url 'invoices:company_settings' %}">configure seus dados fiscais</a>.</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Transações Recentes -->
 <div class="row mt-2">
     <div class="col-12">
