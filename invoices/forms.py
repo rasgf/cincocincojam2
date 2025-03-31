@@ -23,7 +23,8 @@ class CompanyConfigForm(forms.ModelForm):
         fields = [
             'enabled', 'cnpj', 'razao_social', 'nome_fantasia', 'inscricao_municipal',
             'regime_tributario', 'endereco', 'numero', 'complemento', 'bairro',
-            'municipio', 'uf', 'cep', 'telefone', 'email'
+            'municipio', 'uf', 'cep', 'telefone', 'email',
+            'rps_serie', 'rps_numero_atual', 'rps_lote'
         ]
         widgets = {
             'enabled': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
@@ -41,6 +42,9 @@ class CompanyConfigForm(forms.ModelForm):
             'cep': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '00000-000'}),
             'telefone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '(00) 00000-0000'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
+            'rps_serie': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '1'}),
+            'rps_numero_atual': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'rps_lote': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
         }
     
     def __init__(self, *args, **kwargs):

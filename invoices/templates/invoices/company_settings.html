@@ -109,6 +109,26 @@
                                     {{ form.email|as_crispy_field }}
                                 </div>
                             </div>
+                            
+                            <h5 class="border-bottom pb-2 mb-4 mt-5">Configuração RPS (Recibo Provisório de Serviços)</h5>
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> O RPS (Recibo Provisório de Serviços) é um documento obrigatório para emissão de NFS-e. Configure aqui os números sequenciais de RPS que serão utilizados.
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    {{ form.rps_serie|as_crispy_field }}
+                                    <small class="text-muted">Série do RPS (normalmente "1")</small>
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form.rps_numero_atual|as_crispy_field }}
+                                    <small class="text-muted">Próximo número de RPS a ser emitido</small>
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form.rps_lote|as_crispy_field }}
+                                    <small class="text-muted">Número do lote para envio em lote</small>
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="row mt-4">
