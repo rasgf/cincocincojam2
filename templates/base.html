@@ -47,6 +47,9 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'courses:course_list' %}">Meus Cursos</a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'courses:student:course_list' %}">Catálogo de Cursos</a>
+                            </li>
                         {% endif %}
                         
                         {% if user.is_student %}

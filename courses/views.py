@@ -26,11 +26,20 @@ class ProfessorCourseMixin(UserPassesTestMixin):
         if not self.request.user.is_authenticated or not self.request.user.is_professor:
             return False
             
-        # Obter o curso da URL
+        # Verificar contexto - para CourseViews
         course_id = self.kwargs.get('course_id') or self.kwargs.get('pk')
         if course_id:
+            # Para CourseViews
             course = get_object_or_404(Course, pk=course_id)
             return course.professor == self.request.user
+        
+        # Para LessonViews (update/delete) onde temos pk da lição
+        if hasattr(self, 'get_object') and self.model == Lesson:
+            try:
+                lesson = self.get_object()
+                return lesson.course.professor == self.request.user
+            except:
+                pass
             
         return True  # Para CreateView, que não tem curso ainda
 
@@ -191,13 +200,26 @@ class LessonCreateView(LoginRequiredMixin, ProfessorCourseMixin, CreateView):
         return super().form_valid(form)
 
 
-class LessonUpdateView(LoginRequiredMixin, ProfessorCourseMixin, UpdateView):
+class LessonUpdateView(LoginRequiredMixin, UpdateView):
     """
     Atualiza uma aula existente.
     """
     model = Lesson
     form_class = LessonForm
     template_name = 'courses/lesson_form.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Obter a aula e verificar permissões
+        self.object = self.get_object()
+        if not request.user.is_professor or self.object.course.professor != request.user:
+            return self.handle_no_permission()
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # Passar o curso associado à aula para o formulário
+        kwargs['course'] = self.object.course
+        return kwargs
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -212,12 +234,19 @@ class LessonUpdateView(LoginRequiredMixin, ProfessorCourseMixin, UpdateView):
         return super().form_valid(form)
 
 
-class LessonDeleteView(LoginRequiredMixin, ProfessorCourseMixin, DeleteView):
+class LessonDeleteView(LoginRequiredMixin, DeleteView):
     """
     Exclui uma aula.
     """
     model = Lesson
     template_name = 'courses/lesson_confirm_delete.html'
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Obter a aula e verificar permissões
+        self.object = self.get_object()
+        if not request.user.is_professor or self.object.course.professor != request.user:
+            return self.handle_no_permission()
+        return super().dispatch(request, *args, **kwargs)
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

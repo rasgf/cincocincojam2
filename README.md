@@ -108,8 +108,14 @@ O projeto está organizado em três aplicações principais:
 
 7. **Inicie o servidor de desenvolvimento:**
    ```bash
-   python manage.py runserver
+   python3 manage.py runserver
    ```
+   
+   Alternativamente, use o script de inicialização que gerencia automaticamente a porta:
+   ```bash
+   ./start_server.sh
+   ```
+   Este script verifica se há algum processo usando a porta 8000 e o encerra antes de iniciar o servidor.
 
 8. **Acesse a aplicação:**
    Abra o navegador e acesse `http://127.0.0.1:8000/`

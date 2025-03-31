@@ -73,10 +73,26 @@ class UserCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = 'Criar Novo Usuário'
+        
+        # Debug para verificar o formulário
+        if 'form' in context:
+            print(f"Form fields: {context['form'].fields}")
+            for field_name, field in context['form'].fields.items():
+                print(f"Field {field_name}: {field}")
+        else:
+            print("Form not in context!")
+            
         return context
     
     def form_valid(self, form):
-        messages.success(self.request, 'Usuário criado com sucesso!')
+        # Garantir que o usuário seja salvo corretamente
+        user = form.save(commit=False)
+        # Se a senha não foi definida pelo formulário, definimos aqui
+        if not user.password and form.cleaned_data.get('password1'):
+            user.set_password(form.cleaned_data['password1'])
+        user.save()
+        
+        messages.success(self.request, f"Usuário {user.email} criado com sucesso!")
         return super().form_valid(form)
 
 
