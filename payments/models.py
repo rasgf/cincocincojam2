@@ -50,6 +50,26 @@ class PaymentTransaction(models.Model):
         blank=True
     )
     
+    # Campos específicos para pagamento via Pix
+    correlation_id = models.CharField(
+        _('ID de Correlação'),
+        max_length=255,
+        blank=True,
+        help_text=_('ID de correlação para pagamentos via Pix')
+    )
+    brcode = models.TextField(
+        _('BR Code Pix'),
+        blank=True,
+        null=True,
+        help_text=_('Código Pix copia e cola')
+    )
+    qrcode_image = models.URLField(
+        _('URL do QR Code'),
+        blank=True,
+        null=True,
+        help_text=_('URL da imagem do QR Code para pagamento Pix')
+    )
+    
     # Campos de controle
     created_at = models.DateTimeField(
         _('data de criação'),

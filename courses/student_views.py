@@ -187,40 +187,56 @@ class CourseDetailView(LoginRequiredMixin, DetailView):
         is_enrolled = False
         enrollment = None
         is_course_author = False
+        is_admin = False
         
         # Adiciona informações sobre o tipo de usuário ao contexto
         context['is_student'] = self.request.user.is_student
         context['is_professor'] = self.request.user.is_professor
+        context['is_admin'] = self.request.user.is_admin
 
-        # Para alunos, verifica matrícula
+        # Para alunos, verifica matrícula ATIVA
         if self.request.user.is_authenticated and self.request.user.is_student:
+            # Verificar se existe alguma matrícula (independente do status) para mostrar status correto
             try:
-                enrollment = Enrollment.objects.get(
+                any_enrollment = Enrollment.objects.get(
                     student=self.request.user,
-                    course=course,
-                    status=Enrollment.Status.ACTIVE
+                    course=course
                 )
-                is_enrolled = True
                 
-                # Se o aluno está matriculado, adiciona informações sobre progresso
-                context['enrollment'] = enrollment
-                context['progress_width'] = f"{enrollment.progress}%"
+                context['enrollment_exists'] = True
+                context['enrollment_status'] = any_enrollment.status
                 
-                # Busca as aulas que o aluno já completou
-                completed_lessons = LessonProgress.objects.filter(
-                    enrollment=enrollment,
-                    is_completed=True
-                ).values_list('lesson_id', flat=True)
-                
-                context['completed_lessons'] = completed_lessons
-                
+                # Verificar especificamente matrículas ATIVAS
+                if any_enrollment.status == Enrollment.Status.ACTIVE:
+                    is_enrolled = True
+                    enrollment = any_enrollment
+                    
+                    # Se o aluno está matriculado ativamente, adiciona informações sobre progresso
+                    context['enrollment'] = enrollment
+                    context['progress_width'] = f"{enrollment.progress}%"
+                    
+                    # Busca as aulas que o aluno já completou
+                    completed_lessons = LessonProgress.objects.filter(
+                        enrollment=enrollment,
+                        is_completed=True
+                    ).values_list('lesson_id', flat=True)
+                    
+                    context['completed_lessons'] = completed_lessons
             except Enrollment.DoesNotExist:
-                pass
+                context['enrollment_exists'] = False
+                
         # Para professores, verifica se é autor do curso
         elif self.request.user.is_authenticated and self.request.user.is_professor:
             is_course_author = (course.professor == self.request.user)
             context['is_course_author'] = is_course_author
             # Professores sempre podem ver todas as aulas
+            is_enrolled = True  # Consideramos como "enrolled" para mostrar todas as aulas
+            
+        # Para administradores, têm acesso completo
+        elif self.request.user.is_authenticated and self.request.user.is_admin:
+            is_admin = True
+            context['is_admin'] = True
+            # Admins sempre podem ver todas as aulas
             is_enrolled = True  # Consideramos como "enrolled" para mostrar todas as aulas
                 
         context['is_enrolled'] = is_enrolled

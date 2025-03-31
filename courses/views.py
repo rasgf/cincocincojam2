@@ -182,6 +182,11 @@ class CourseDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
         if self.request.user.is_professor:
             course = self.get_object()
             return course.professor == self.request.user
+        
+        # Se for aluno, também tem acesso aos cursos publicados
+        if self.request.user.is_student:
+            course = self.get_object()
+            return course.status == 'PUBLISHED'
             
         return False
     
