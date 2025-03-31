@@ -101,9 +101,9 @@ O projeto está organizado em três aplicações principais:
    python manage.py migrate
    ```
 
-6. **Crie um superusuário (opcional):**
+6. **Crie os usuários padrão:**
    ```bash
-   python manage.py createsuperuser
+   python manage.py create_default_users
    ```
 
 7. **Inicie o servidor de desenvolvimento:**
@@ -116,13 +116,13 @@ O projeto está organizado em três aplicações principais:
 
 ## Usuários de Demonstração
 
-Para facilitar os testes, o sistema vem pré-configurado com três usuários de demonstração:
+Para facilitar os testes, o sistema vem pré-configurado com três usuários padrão:
 
 | Tipo | Email | Senha |
 |------|-------|-------|
-| Aluno | aluno@4tuna.com.br | senha123 |
-| Professor | professor@4tuna.com.br | senha123 |
-| Admin | admin@4tuna.com.br | senha123 |
+| Aluno | aluno@example.com | aluno123 |
+| Professor | professor@example.com | prof123 |
+| Admin | admin@example.com | admin123 |
 
 Utilize os botões de login rápido na página de login para acessar facilmente cada tipo de usuário.
 
