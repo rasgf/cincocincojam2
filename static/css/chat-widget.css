@@ -191,49 +191,32 @@
     }
 }
 
-/* Animação de digitação */
-.typing-indicator {
-    display: inline-flex;
-    align-items: center;
+/* Cores do tema para o widget de chat, adaptadas do tema principal */
+:root {
+    --chat-bg: var(--bs-light);
+    --chat-text: var(--bs-dark);
+    --chat-primary: var(--bs-primary);
+    --chat-secondary: var(--bs-secondary);
+    --chat-success: var(--bs-success);
+    --chat-user-msg-bg: var(--bs-primary);
+    --chat-user-msg-text: white;
+    --chat-bot-msg-bg: var(--bs-light);
+    --chat-bot-msg-text: var(--bs-dark);
+    --chat-border: rgba(0, 0, 0, 0.125);
+    --chat-button-bg: var(--bs-primary);
+    --chat-button-text: white;
+    --chat-button-hover: var(--bs-primary-darker, #0056b3);
 }
 
-.typing-indicator span {
-    height: 4px;
-    width: 4px;
-    margin: 0 1px;
-    background-color: currentColor;
-    border-radius: 50%;
-    display: inline-block;
-    opacity: 0.6;
-}
-
-.typing-indicator span:nth-child(1) {
-    animation: typing 1.5s infinite 0s;
-}
-
-.typing-indicator span:nth-child(2) {
-    animation: typing 1.5s infinite 0.2s;
-}
-
-.typing-indicator span:nth-child(3) {
-    animation: typing 1.5s infinite 0.4s;
-}
-
-@keyframes typing {
-    0% {
-        transform: translateY(0px);
-        opacity: 0.6;
-    }
-    25% {
-        transform: translateY(-3px);
-        opacity: 1;
-    }
-    50% {
-        transform: translateY(0px);
-        opacity: 0.6;
-    }
-    100% {
-        transform: translateY(0px);
-        opacity: 0.6;
+/* Suporte para tema escuro */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --chat-bg: var(--bs-dark);
+        --chat-text: var(--bs-light);
+        --chat-user-msg-bg: var(--bs-primary);
+        --chat-user-msg-text: white;
+        --chat-bot-msg-bg: var(--bs-dark-lighter, #343a40);
+        --chat-bot-msg-text: var(--bs-light);
+        --chat-border: rgba(255, 255, 255, 0.125);
     }
 }

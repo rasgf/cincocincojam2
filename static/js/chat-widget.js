@@ -160,27 +160,19 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
+            // Remove o indicador de digitação
+            chatMessages.removeChild(typingIndicator);
+            
             if (data.success) {
-                // Atualiza o indicador de digitação para a animação de 3 pontinhos
-                typingIndicator.innerHTML = '<div class="typing-indicator">Digitando<span></span><span></span><span></span></div>';
+                // Cria a resposta do bot
+                const botMessageElement = document.createElement('div');
+                botMessageElement.className = 'chat-message bot-message';
+                botMessageElement.textContent = data.response;
+                chatMessages.appendChild(botMessageElement);
                 
-                // Aguarda 1,5 segundos antes de mostrar a resposta
-                setTimeout(() => {
-                    // Remove o indicador de digitação
-                    chatMessages.removeChild(typingIndicator);
-                    
-                    // Cria a resposta do bot
-                    const botMessageElement = document.createElement('div');
-                    botMessageElement.className = 'chat-message bot-message';
-                    botMessageElement.textContent = data.response;
-                    chatMessages.appendChild(botMessageElement);
-                    
-                    // Rola para o final
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }, 1500);
+                // Rola para o final
+                chatMessages.scrollTop = chatMessages.scrollHeight;
             } else {
-                // Remove o indicador de digitação imediatamente em caso de erro
-                chatMessages.removeChild(typingIndicator);
                 throw new Error(data.message || 'Erro ao enviar mensagem');
             }
         })

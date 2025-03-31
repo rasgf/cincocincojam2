@@ -4,7 +4,19 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
 import uuid
+import logging
+from django.shortcuts import render
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
 from .models import ChatSession, Message
+from .openai_manager import OpenAIManager
+
+# Inicializa o logger
+logger = logging.getLogger(__name__)
+
+# Inicializa o gerenciador de OpenAI
+openai_manager = OpenAIManager()
 
 def index(request):
     """View para renderizar a página principal do assistente"""
@@ -68,9 +80,16 @@ def send_message(request):
                 content=message_content
             )
             
-            # Resposta simples do bot (será substituída pela integração com OpenAI)
-            bot_response = "Olá! Sou o assistente virtual do CincoCincoJAM. Em breve estarei integrado com a OpenAI para poder responder suas perguntas de forma mais eficiente. Como posso ajudar?"
+            # Busca o histórico de mensagens da sessão
+            message_history = Message.objects.filter(chat_session=chat_session).order_by('timestamp')
             
+            # Formata o histórico para a API da OpenAI
+            formatted_messages = openai_manager.format_chat_history(list(message_history))
+            
+            # Obtém a resposta da OpenAI
+            bot_response = openai_manager.get_response(formatted_messages)
+            
+            # Cria a mensagem do bot
             bot_message = Message.objects.create(
                 chat_session=chat_session,
                 sender='bot',
@@ -89,6 +108,7 @@ def send_message(request):
                 'message': 'JSON inválido'
             }, status=400)
         except Exception as e:
+            logger.error(f"Erro não esperado: {str(e)}")
             return JsonResponse({
                 'success': False,
                 'message': f'Erro interno: {str(e)}'

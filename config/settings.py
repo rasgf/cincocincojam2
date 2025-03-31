@@ -10,22 +10,28 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
-from pathlib import Path
 import os
+from pathlib import Path
+import environ
 from decouple import config, Csv
+
+# Inicializar environ
+env = environ.Env()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Leitura do arquivo .env
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
+SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+DEBUG = env('DEBUG', default=True, cast=bool)
 
 # Hardcoded ALLOWED_HOSTS to ensure it works
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.11']
@@ -99,11 +105,11 @@ DATABASES = {
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': config('DB_NAME', default='cincocincojam2'),
-#         'USER': config('DB_USER', default='postgres'),
-#         'PASSWORD': config('DB_PASSWORD', default='postgres'),
-#         'HOST': config('DB_HOST', default='localhost'),
-#         'PORT': config('DB_PORT', default='5432', cast=int),
+#         'NAME': env('DB_NAME', default='cincocincojam2'),
+#         'USER': env('DB_USER', default='postgres'),
+#         'PASSWORD': env('DB_PASSWORD', default='postgres'),
+#         'HOST': env('DB_HOST', default='localhost'),
+#         'PORT': env('DB_PORT', default='5432', cast=int),
 #     }
 # }
 
@@ -171,3 +177,9 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # Para usar modelo de usuário customizado (será criado no app core)
 AUTH_USER_MODEL = 'core.User'
+
+# Settings para o Assistente Virtual/ChatBot
+OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
+OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-4o-mini')
+OPENAI_MAX_TOKENS = int(env('OPENAI_MAX_TOKENS', default=150))
+OPENAI_TEMPERATURE = float(env('OPENAI_TEMPERATURE', default=0.7))
