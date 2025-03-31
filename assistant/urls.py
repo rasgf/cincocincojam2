@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import views_test
 
 app_name = 'assistant'
 
@@ -12,4 +13,6 @@ urlpatterns = [
     path('history/<str:session_id>/', views.chat_history, name='history_detail'),
     path('config/', views.behavior_config, name='behavior_config'),
     path('config/save/', views.save_behavior, name='save_behavior'),
+    # Rota de teste para informações financeiras
+    path('test/financial/', views_test.test_financial_info, name='test_financial_info'),
 ]

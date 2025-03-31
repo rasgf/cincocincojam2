@@ -84,19 +84,30 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => chatInput.focus(), 300);
     }
     
-    // Aplicar estado expandido
+    // Aplicar estado expandido - versão maior do chat
     function applyExpandedState() {
+        // Adiciona classes ao chat
         chatPopup.classList.add('expanded');
         chatExpand.classList.add('is-expanded');
+        
+        // Atualiza atributos e ícones
         chatExpand.setAttribute('title', 'Contrair chat');
         chatExpand.querySelector('i').classList.remove('fa-expand-alt');
         chatExpand.querySelector('i').classList.add('fa-compress-alt');
+        
+        // Centraliza o scroll no conteúdo da janela
+        if (chatMessages.lastElementChild) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
     }
     
-    // Aplicar estado contraído
+    // Aplicar estado contraído - retorna ao tamanho normal
     function applyContractedState() {
+        // Remove classes do chat
         chatPopup.classList.remove('expanded');
         chatExpand.classList.remove('is-expanded');
+        
+        // Atualiza atributos e ícones
         chatExpand.setAttribute('title', 'Expandir chat');
         chatExpand.querySelector('i').classList.remove('fa-compress-alt');
         chatExpand.querySelector('i').classList.add('fa-expand-alt');
@@ -164,10 +175,42 @@ document.addEventListener('DOMContentLoaded', function() {
             chatMessages.removeChild(typingIndicator);
             
             if (data.success) {
-                // Cria a resposta do bot
+                // Cria a resposta do bot com suporte a markdown
                 const botMessageElement = document.createElement('div');
                 botMessageElement.className = 'chat-message bot-message';
-                botMessageElement.textContent = data.response;
+                
+                // Converte markdown em HTML
+                let formattedResponse = data.response;
+                
+                // Formatação básica de markdown
+                // Títulos
+                formattedResponse = formattedResponse.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+                formattedResponse = formattedResponse.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+                formattedResponse = formattedResponse.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+                
+                // Negrito e itálico
+                formattedResponse = formattedResponse.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+                formattedResponse = formattedResponse.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+                
+                // Listas
+                formattedResponse = formattedResponse.replace(/^\d+\. (.*$)/gim, '<ol><li>$1</li></ol>');
+                formattedResponse = formattedResponse.replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>');
+                formattedResponse = formattedResponse.replace(/^- (.*$)/gim, '<ul><li>$1</li></ul>');
+                
+                // Citações
+                formattedResponse = formattedResponse.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
+                
+                // Código
+                formattedResponse = formattedResponse.replace(/`([^`]+)`/gim, '<code>$1</code>');
+                
+                // Links
+                formattedResponse = formattedResponse.replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2">$1</a>');
+                
+                // Quebra de linha
+                formattedResponse = formattedResponse.replace(/\n/gim, '<br>');
+                
+                // Aplica o HTML formatado
+                botMessageElement.innerHTML = formattedResponse;
                 chatMessages.appendChild(botMessageElement);
                 
                 // Rola para o final

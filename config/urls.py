@@ -56,6 +56,9 @@ urlpatterns = [
     # Assistant
     path('assistant/', include('assistant.urls')),
     
+    # Agenda do Professor
+    path('agenda/', include('scheduler.urls')),
+    
     # Invoices
     path('invoices/', include('invoices.urls')),
     
