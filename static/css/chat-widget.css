@@ -52,20 +52,30 @@
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
 }
 
-/* Estilo para o widget expandido */
+/* Estilo para o widget expandido - tamanho bem mais amplo */
 .chat-widget-popup.expanded {
-    width: 450px;
-    height: 550px;
+    position: fixed;
+    bottom: 90px; /* Mantem a posição original */
+    right: 20px; /* Mantem a posição original */
+    width: 600px;
+    height: 650px;
+    max-width: 95vw;
+    max-height: 85vh;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    z-index: 1040;
+    border-radius: 12px;
 }
 
 /* Estilo para o widget em tela cheia em dispositivos móveis */
 @media (max-width: 576px) {
     .chat-widget-popup.expanded {
-        width: 100%;
-        height: 100%;
-        bottom: 0;
-        right: 0;
-        border-radius: 0;
+        width: 90%;
+        height: 80%;
+        max-width: none;
+        max-height: 80vh;
+        bottom: 10vh;
+        right: 5%;
+        border-radius: 8px;
     }
 }
 
@@ -189,6 +199,75 @@
         right: 5%;
         left: 5%;
     }
+}
+
+/* Estilos para formatação markdown nas mensagens do bot */
+.bot-message h1 {
+    font-size: 1.5em;
+    margin: 0.7em 0 0.5em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 0.3em;
+    color: white;
+}
+
+.bot-message h2 {
+    font-size: 1.3em;
+    margin: 0.6em 0 0.4em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 0.2em;
+    color: white;
+}
+
+.bot-message h3 {
+    font-size: 1.1em;
+    margin: 0.5em 0 0.3em;
+    color: white;
+}
+
+.bot-message strong {
+    font-weight: bold;
+    color: white;
+}
+
+.bot-message em {
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.bot-message ul, .bot-message ol {
+    padding-left: 1.5em;
+    margin: 0.5em 0;
+}
+
+.bot-message blockquote {
+    border-left: 3px solid rgba(255, 255, 255, 0.5);
+    padding-left: 0.8em;
+    margin: 0.5em 0;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.bot-message code {
+    background-color: rgba(255, 255, 255, 0.2);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: monospace;
+    color: white;
+}
+
+.bot-message a {
+    color: white;
+    text-decoration: underline;
+}
+
+.bot-message a:hover {
+    text-decoration: none;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+
+/* Ajuste de largura das mensagens para o chat expandido */
+.chat-widget-popup.expanded .chat-message {
+    max-width: 90%;
 }
 
 /* Cores do tema para o widget de chat, adaptadas do tema principal */

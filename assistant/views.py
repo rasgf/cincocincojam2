@@ -98,8 +98,65 @@ def send_message(request):
                 
                 system_message["content"] += user_context
             
-            # Obtém a resposta da OpenAI
-            bot_response = openai_manager.get_response(formatted_messages)
+            # ACESSO DIRETO AO BANCO DE DADOS
+            # Palavras-chave que indicam consultas a dados financeiros ou do sistema
+            finance_keywords = ['faturamento', 'receita', 'pagamento', 'pagamentos', 'financeiro', 
+                              'financeira', 'pagar', 'transacao', 'transacoes', 'transação', 
+                              'transações', 'dinheiro', 'venda', 'vendas', 'estatística']
+                              
+            client_keywords = ['melhor cliente', 'maior cliente', 'cliente que mais', 'top cliente',
+                             'cliente principal', 'quem compra mais', 'maior comprador']
+            
+            lower_message = message_content.lower()
+            is_finance_query = any(keyword in lower_message for keyword in finance_keywords)
+            is_client_query = any(keyword in lower_message for keyword in client_keywords)
+            
+            # Se for qualquer tipo de consulta financeira ou sobre o melhor cliente, responde diretamente 
+            if is_finance_query or is_client_query:
+                from .db_manager import DatabaseManager
+                from .direct_query import format_financial_data, get_best_client_info
+                db_manager = DatabaseManager()
+                
+                # Se for consulta sobre o melhor cliente
+                if is_client_query:
+                    # Usar nossa nova função otimizada que acessa diretamente o banco
+                    bot_response = get_best_client_info()
+                    
+                # Se for consulta sobre dados financeiros
+                elif is_finance_query:
+                    # Usar nossa nova função que formata todos os dados financeiros
+                    bot_response = format_financial_data()
+                    
+                # Situação não coberta pelos casos específicos acima
+                # Usar a função do banco de dados default
+                else:
+                    # Busca informações sobre pagamentos pendentes
+                    pending_data = db_manager.get_pending_payments()
+                    # Formata a resposta
+                    if pending_data and 'total_count' in pending_data:
+                        count = pending_data.get('total_count', 0)
+                        total = pending_data.get('total_amount', 0)
+                        
+                        bot_response = f"# ⏳ Pagamentos Pendentes\n"
+                        bot_response += f"**Total de pagamentos pendentes**: {count} | "
+                        bot_response += f"**Valor total pendente**: R$ {float(total):.2f}\n"
+                        
+                        if count > 0 and 'payments' in pending_data:
+                            bot_response += "### Lista de Pagamentos Pendentes\n"
+                            
+                            for i, payment in enumerate(pending_data.get('payments', []), 1):
+                                bot_response += f"**{i}. Pagamento #{payment.get('id')}** - "
+                                bot_response += f"Aluno: {payment.get('student_name', 'N/A')} ({payment.get('student_email', 'N/A')}) | "
+                                bot_response += f"Curso: {payment.get('course_name', 'N/A')} | "
+                                bot_response += f"Valor: R$ {float(payment.get('amount', 0)):.2f} | "
+                                bot_response += f"Data: {payment.get('created_at', 'N/A')}\n"
+                        else:
+                            bot_response += "_Não há pagamentos pendentes no momento._\n"
+                    else:
+                        bot_response = "Não foram encontrados dados sobre pagamentos pendentes."
+            else:
+                # Se não for sobre finanças, prossegue normalmente
+                bot_response = openai_manager.get_response(formatted_messages)
             
             # Cria a mensagem do bot
             bot_message = Message.objects.create(
