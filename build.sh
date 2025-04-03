@@ -2,6 +2,9 @@
 # exit on error
 set -o errexit
 
+# Comentário adicional para forçar um novo commit
+# Script para build no Render - versão atualizada
+
 # Instalação de dependências
 pip install --upgrade pip
 pip install -r requirements.txt
