@@ -10,7 +10,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 
 # Dependências adicionais necessárias que não estavam no requirements.txt
-pip install whitenoise openai django-environ dj-database-url gunicorn
+pip install whitenoise openai django-environ dj-database-url gunicorn requests
 
 # Criação das pastas necessárias
 mkdir -p staticfiles media logs
@@ -21,7 +21,5 @@ python manage.py collectstatic --no-input
 # Executar migrações
 python manage.py migrate
 
-# Criar usuários iniciais (apenas em ambiente de desenvolvimento)
-if [ "$DJANGO_ENVIRONMENT" = "development" ]; then
-    python manage.py create_default_users
-fi 
+# Criar usuários iniciais em todos os ambientes para teste inicial
+python manage.py create_default_users 
