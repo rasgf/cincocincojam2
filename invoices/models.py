@@ -144,6 +144,24 @@ class CompanyConfig(models.Model):
         verbose_name=_('regime tributário')
     )
     
+    # Campos para controle de RPS (Recibo Provisório de Serviço)
+    rps_serie = models.CharField(
+        max_length=5,
+        default='1',
+        verbose_name=_('série do RPS'),
+        help_text=_('Série do Recibo Provisório de Serviço')
+    )
+    rps_numero_atual = models.PositiveIntegerField(
+        default=1,
+        verbose_name=_('número atual do RPS'),
+        help_text=_('Número sequencial do último RPS emitido')
+    )
+    rps_lote = models.PositiveIntegerField(
+        default=1,
+        verbose_name=_('lote de RPS'),
+        help_text=_('Número do lote de RPS para envio em lote')
+    )
+    
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name=_('criado em')
@@ -264,6 +282,24 @@ class Invoice(models.Model):
         blank=True, 
         null=True,
         verbose_name=_('Dados completos do Focus')
+    )
+    
+    # Campos de RPS
+    rps_serie = models.CharField(
+        max_length=5,
+        blank=True, 
+        null=True,
+        verbose_name=_('série RPS')
+    )
+    rps_numero = models.PositiveIntegerField(
+        blank=True, 
+        null=True,
+        verbose_name=_('número RPS')
+    )
+    rps_lote = models.PositiveIntegerField(
+        blank=True, 
+        null=True,
+        verbose_name=_('lote RPS')
     )
     
     # Campos de resposta e controle

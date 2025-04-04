@@ -107,6 +107,12 @@ class NFEioService:
     def emit_invoice(self, invoice):
         """
         Emite uma nota fiscal de serviço usando a API NFE.io.
+        
+        Args:
+            invoice: Objeto Invoice do Django
+            
+        Returns:
+            dict: Resposta da API com os dados da nota emitida
         """
         print(f"\nDEBUG - Iniciando emissão de nota fiscal ID: {invoice.id}")
         print(f"DEBUG - Status atual: {invoice.status}")
@@ -121,6 +127,11 @@ class NFEioService:
         professor = course.professor
         print(f"DEBUG - Curso: {course.title}")
         print(f"DEBUG - Professor: {professor.username}")
+        
+        # Obter ou criar o próximo número de RPS
+        if invoice.rps_numero is None:
+            self._generate_rps_for_invoice(invoice, professor)
+        print(f"DEBUG - RPS: Série {invoice.rps_serie}, Número {invoice.rps_numero}")
         
         if not hasattr(professor, 'company_config'):
             error_msg = f"Professor {professor.id} não possui configuração de empresa"
@@ -145,6 +156,7 @@ class NFEioService:
         print(f"DEBUG - Descrição do serviço: {service_description}")
             
         # Preparar dados da nota fiscal no formato esperado pela API NFE.io
+        # Incluindo informações do RPS
         
         # Verificar se o documento do cliente é CPF ou CNPJ
         cpf = getattr(student, 'cpf', '00000000000')
@@ -185,7 +197,10 @@ class NFEioService:
             "servicesAmount": float(transaction.amount),
             "environment": self.environment,
             "reference": f"TRANSACTION_{transaction.id}",
-            "additionalInformation": f"Aula ministrada por {professor.first_name} {professor.last_name}. Plataforma: 555JAM"
+            "additionalInformation": f"Aula ministrada por {professor.first_name} {professor.last_name}. Plataforma: 555JAM",
+            # Adicionar informações do RPS
+            "rpsSerialNumber": invoice.rps_serie,
+            "rpsNumber": invoice.rps_numero
         }
         
         print(f"DEBUG - Dados da nota fiscal para envio: {json.dumps(invoice_data, indent=2)}")
@@ -240,6 +255,42 @@ class NFEioService:
         self.check_invoice_status(invoice)
         
         return response
+        
+    def _generate_rps_for_invoice(self, invoice, professor):
+        """
+        Gera um número de RPS para a nota fiscal e atualiza o contador no CompanyConfig.
+        
+        Args:
+            invoice: Objeto Invoice do Django
+            professor: Objeto User (professor) associado à nota fiscal
+        """
+        print(f"DEBUG - Gerando número RPS para invoice {invoice.id}")
+        
+        # Obter a configuração da empresa do professor
+        try:
+            company_config = CompanyConfig.objects.get(user=professor)
+            
+            # Atribuir valores de RPS à nota fiscal
+            invoice.rps_serie = company_config.rps_serie
+            invoice.rps_numero = company_config.rps_numero_atual
+            invoice.rps_lote = company_config.rps_lote
+            invoice.save()
+            
+            # Incrementar o contador de RPS na configuração da empresa
+            company_config.rps_numero_atual += 1
+            company_config.save()
+            
+            print(f"DEBUG - RPS gerado: Série {invoice.rps_serie}, Número {invoice.rps_numero}")
+            print(f"DEBUG - Próximo número RPS será: {company_config.rps_numero_atual}")
+            
+        except CompanyConfig.DoesNotExist:
+            print(f"DEBUG - ERRO: Configuração da empresa não encontrada para o professor {professor.id}")
+            # Usar valores padrão para evitar falha na emissão
+            invoice.rps_serie = '1'
+            invoice.rps_numero = 1
+            invoice.rps_lote = 1
+            invoice.save()
+            print(f"DEBUG - RPS padrão gerado: Série 1, Número 1")
     
     def check_invoice_status(self, invoice):
         """
