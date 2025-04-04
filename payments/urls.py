@@ -13,6 +13,9 @@ professor_patterns = [
     # Novas URLs para gestão de alunos
     path('students/', views.ProfessorStudentListView.as_view(), name='professor_students'),
     path('student/<int:pk>/', views.ProfessorStudentDetailView.as_view(), name='professor_student_detail'),
+    
+    # URL para emitir cobrança
+    path('transaction/<int:transaction_id>/emit-charge/', views.emit_payment_charge, name='emit_payment_charge'),
 ]
 
 # URLs para administradores

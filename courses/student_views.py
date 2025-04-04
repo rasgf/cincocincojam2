@@ -88,6 +88,27 @@ class StudentDashboardView(LoginRequiredMixin, StudentRequiredMixin, ListView):
         ).select_related('lesson', 'enrollment', 'enrollment__course'
         ).order_by('-last_accessed_at')[:5]
         
+        # Verificar se há cobranças pendentes
+        try:
+            from payments.models import PaymentTransaction
+            
+            # Buscar transações pendentes
+            pending_transactions = PaymentTransaction.objects.filter(
+                enrollment__student=self.request.user,
+                status=PaymentTransaction.Status.PENDING
+            ).select_related('enrollment', 'enrollment__course').order_by('-created_at')
+            
+            context['pending_transactions'] = pending_transactions
+            context['has_pending_payment'] = pending_transactions.exists()
+            
+            # Se tiver apenas uma transação pendente, facilitar o acesso direto
+            if pending_transactions.count() == 1:
+                context['single_pending_transaction'] = pending_transactions.first()
+        except (ImportError, Exception) as e:
+            # Se o módulo payments não estiver disponível ou ocorrer outro erro
+            print(f"Erro ao buscar transações pendentes: {e}")
+            context['has_pending_payment'] = False
+        
         return context
 
 

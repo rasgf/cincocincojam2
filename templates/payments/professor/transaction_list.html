@@ -82,11 +82,12 @@
                             <th>Status</th>
                             <th>Método</th>
                             <th>Nota Fiscal</th>
+                            <th class="text-end">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for transaction in transactions %}
-                        <tr>
+                        <tr data-transaction-id="{{ transaction.id }}">
                             <td>{{ transaction.id }}</td>
                             <td>{{ transaction.created_at|date:"d/m/Y H:i" }}</td>
                             <td>{{ transaction.enrollment.student.email }}</td>
@@ -172,6 +173,13 @@
                                     </a>
                                 {% endif %}
                             </td>
+                            <td class="text-end">
+                                {% if transaction.status == 'PENDING' %}
+                                <a href="{% url 'payments:emit_payment_charge' transaction.id %}" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-paper-plane me-1"></i> Emitir Cobrança
+                                </a>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -235,6 +243,98 @@
 
 {% block extra_js %}
 <script>
+    // Verifica se há parâmetro de cobrança emitida com sucesso na URL
+    document.addEventListener('DOMContentLoaded', function() {
+        // Verificar parâmetro de cobrança emitida na URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const emittedId = urlParams.get('emitted');
+        
+        if (emittedId) {
+            // Exibir notificação de sucesso usando o sistema de notificação 
+            showNotification('success', 'Cobrança emitida com sucesso! O aluno receberá um email com as instruções de pagamento.');
+            
+            // Destacar a linha da tabela correspondente à transação
+            const transactionRow = document.querySelector(`tr[data-transaction-id="${emittedId}"]`);
+            if (transactionRow) {
+                transactionRow.classList.add('bg-light');
+                transactionRow.classList.add('animate__animated');
+                transactionRow.classList.add('animate__flash');
+                
+                // Remover a classe de destaque após 5 segundos
+                setTimeout(() => {
+                    transactionRow.classList.remove('bg-light');
+                    transactionRow.classList.remove('animate__animated');
+                    transactionRow.classList.remove('animate__flash');
+                }, 5000);
+            }
+            
+            // Limpar o parâmetro da URL
+            history.replaceState(null, '', window.location.pathname);
+        }
+    });
+    
+    // Função para mostrar notificações
+    function showNotification(type, message) {
+        const alertContainer = document.querySelector('#alert-container');
+        
+        if (!alertContainer) {
+            // Criar um container para alertas se não existir
+            const newAlertContainer = document.createElement('div');
+            newAlertContainer.id = 'alert-container';
+            newAlertContainer.style.position = 'fixed';
+            newAlertContainer.style.top = '20px';
+            newAlertContainer.style.right = '20px';
+            newAlertContainer.style.maxWidth = '400px';
+            newAlertContainer.style.zIndex = '9999';
+            document.body.appendChild(newAlertContainer);
+            
+            const alert = createAlert(type, message);
+            newAlertContainer.appendChild(alert);
+        } else {
+            const alert = createAlert(type, message);
+            alertContainer.appendChild(alert);
+        }
+    }
+    
+    function createAlert(type, message) {
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.role = 'alert';
+        
+        const icon = document.createElement('i');
+        if (type === 'success') {
+            icon.className = 'fas fa-check-circle me-2';
+        } else if (type === 'warning') {
+            icon.className = 'fas fa-exclamation-triangle me-2';
+        } else if (type === 'danger') {
+            icon.className = 'fas fa-times-circle me-2';
+        } else {
+            icon.className = 'fas fa-info-circle me-2';
+        }
+        
+        alert.appendChild(icon);
+        
+        const messageNode = document.createTextNode(message);
+        alert.appendChild(messageNode);
+        
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'btn-close';
+        closeButton.setAttribute('data-bs-dismiss', 'alert');
+        closeButton.setAttribute('aria-label', 'Fechar');
+        alert.appendChild(closeButton);
+        
+        // Configurar auto-remoção após 5 segundos
+        setTimeout(() => {
+            alert.classList.remove('show');
+            setTimeout(() => {
+                alert.remove();
+            }, 150);
+        }, 5000);
+        
+        return alert;
+    }
+
     // Adiciona event listeners para todos os botões de verificação de status
     document.addEventListener('DOMContentLoaded', function() {
         const statusButtons = document.querySelectorAll('.check-status-btn');

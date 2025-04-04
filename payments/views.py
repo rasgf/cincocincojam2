@@ -2,15 +2,19 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
 from django.views.generic import ListView, DetailView, TemplateView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count, Q, F, Prefetch
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.contrib import messages
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from datetime import timedelta
 
 from courses.views import ProfessorRequiredMixin, AdminRequiredMixin, StudentRequiredMixin
 from courses.models import Course, Enrollment
 from .models import PaymentTransaction
+from .openpix_service import OpenPixService
 
 User = get_user_model()
 
@@ -63,8 +67,6 @@ class ProfessorFinancialDashboardView(LoginRequiredMixin, ProfessorRequiredMixin
         context['active_students_count'] = active_students.count()
         
         # Alunos recentes (matriculados nos últimos 30 dias)
-        from django.utils import timezone
-        from datetime import timedelta
         thirty_days_ago = timezone.now() - timedelta(days=30)
         recent_students = User.objects.filter(
             user_type=User.Types.STUDENT,
@@ -112,10 +114,21 @@ class ProfessorFinancialDashboardView(LoginRequiredMixin, ProfessorRequiredMixin
             # Verificar se o professor possui configuração fiscal
             from invoices.models import CompanyConfig
             try:
-                company_config = CompanyConfig.objects.get(user=professor)
-                context['has_company_config'] = True
-                context['company_config_complete'] = company_config.is_complete()
-                context['company_config_enabled'] = company_config.enabled
+                try:
+                    company_config = CompanyConfig.objects.get(user=professor)
+                    context['has_company_config'] = True
+                    context['company_config_complete'] = company_config.is_complete()
+                    context['company_config_enabled'] = company_config.enabled
+                except CompanyConfig.DoesNotExist:
+                    context['has_company_config'] = False
+                    context['company_config_complete'] = False
+                    context['company_config_enabled'] = False
+                except Exception as e:
+                    # Tratar erro com coluna faltando ou outro problema de banco de dados
+                    print(f"Erro ao acessar CompanyConfig: {e}")
+                    context['has_company_config'] = False
+                    context['company_config_complete'] = False
+                    context['company_config_enabled'] = False
             except CompanyConfig.DoesNotExist:
                 context['has_company_config'] = False
                 context['company_config_complete'] = False
@@ -628,3 +641,43 @@ class StudentEnrollmentDetailView(LoginRequiredMixin, StudentRequiredMixin, Deta
         context['is_paid'] = latest_transaction and latest_transaction.status == PaymentTransaction.Status.PAID
         
         return context
+
+
+@login_required
+def emit_payment_charge(request, transaction_id):
+    """
+    Emite uma cobrança para uma transação pendente, enviando um lembrete de pagamento
+    e fornecendo um novo link de pagamento PIX.
+    """
+    # Obter a transação, garantindo que pertence a um curso do professor atual
+    transaction = get_object_or_404(
+        PaymentTransaction, 
+        id=transaction_id, 
+        status=PaymentTransaction.Status.PENDING,
+        enrollment__course__professor=request.user
+    )
+    
+    enrollment = transaction.enrollment
+    
+    try:
+        # Criar uma nova cobrança PIX usando o OpenPix
+        openpix = OpenPixService()
+        charge_data = openpix.create_charge(enrollment)
+        
+        # Atualizar os dados da transação existente
+        transaction.correlation_id = charge_data.get('correlationID')
+        transaction.brcode = charge_data.get('brCode')
+        transaction.qrcode_image = charge_data.get('qrCodeImage')
+        transaction.updated_at = timezone.now()
+        transaction.save()
+        
+        # Enviar um e-mail de cobrança para o aluno (implementação futura)
+        
+        messages.success(request, f'Cobrança emitida com sucesso para {enrollment.student.email}.')
+        
+        # Redirecionar para a página de detalhes da transação com um parâmetro para indicar o sucesso
+        return redirect(reverse('payments:professor_transactions') + f'?emitted={transaction.id}')
+        
+    except Exception as e:
+        messages.error(request, f'Erro ao emitir cobrança: {str(e)}')
+        return redirect('payments:professor_transactions')

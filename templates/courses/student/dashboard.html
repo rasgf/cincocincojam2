@@ -12,6 +12,42 @@
     </div>
 </div>
 
+{% if has_pending_payment %}
+<!-- Alerta de cobrança pendente -->
+<div class="alert alert-warning alert-dismissible fade show mb-4" role="alert">
+    <div class="d-flex align-items-center">
+        <div class="flex-shrink-0">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+        </div>
+        <div class="flex-grow-1 ms-3">
+            <h4 class="alert-heading">Você possui pagamento(s) pendente(s)</h4>
+            <p class="mb-0">
+                {% if pending_transactions.count == 1 %}
+                    Existe uma cobrança pendente para o curso <strong>{{ single_pending_transaction.enrollment.course.title }}</strong> 
+                    no valor de <strong>R$ {{ single_pending_transaction.amount|floatformat:2 }}</strong>.
+                {% else %}
+                    Existem {{ pending_transactions.count }} cobranças pendentes no total de 
+                    <strong>R$ {{ pending_transactions.amount__sum|floatformat:2 }}</strong>.
+                {% endif %}
+            </p>
+            <hr>
+            <div class="mt-2">
+                {% if pending_transactions.count == 1 and single_pending_transaction.payment_method == 'PIX' %}
+                    <a href="{% url 'payments:pix_payment_detail' single_pending_transaction.id %}" class="btn btn-warning">
+                        <i class="fas fa-qrcode me-1"></i> Visualizar Pagamento PIX
+                    </a>
+                {% else %}
+                    <a href="{% url 'payments:student_payments' %}" class="btn btn-warning">
+                        <i class="fas fa-dollar-sign me-1"></i> Saiba Mais
+                    </a>
+                {% endif %}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row">
     <!-- Card de Cursos Matriculados -->
     <div class="col-md-4">
