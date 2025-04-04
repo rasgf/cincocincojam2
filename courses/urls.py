@@ -1,4 +1,5 @@
 from django.urls import path, include
+from django.views.generic.base import RedirectView
 from . import views
 from . import student_views
 
@@ -30,8 +31,12 @@ urlpatterns = [
     
     # Aulas - Professor
     path('<int:course_id>/lessons/create/', views.LessonCreateView.as_view(), name='lesson_create'),
-    path('lessons/<int:pk>/update/', views.LessonUpdateView.as_view(), name='lesson_update'),
-    path('lessons/<int:pk>/delete/', views.LessonDeleteView.as_view(), name='lesson_delete'),
+    path('lesson/<int:pk>/update/', views.LessonUpdateView.as_view(), name='lesson_update'),
+    path('lesson/<int:pk>/delete/', views.LessonDeleteView.as_view(), name='lesson_delete'),
+    
+    # Redirecionamentos para URLs legadas (para compatibilidade)
+    path('lessons/<int:pk>/update/', RedirectView.as_view(pattern_name='courses:lesson_update'), name='legacy_lesson_update'),
+    path('lessons/<int:pk>/delete/', RedirectView.as_view(pattern_name='courses:lesson_delete'), name='legacy_lesson_delete'),
     
     # Alunos - Incluir submódulo de URLs
     path('student/', include((student_patterns, 'student'))),

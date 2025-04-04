@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css">
+<style>
+    .fc-event {
+        cursor: pointer;
+    }
+    .event-class { background-color: #3788d8; }
+    .event-meeting { background-color: #6aa84f; }
+    .event-workshop { background-color: #9900ff; }
+    .event-other { background-color: #f1c232; }
+    
+    .calendar-container {
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    }
+    
+    .upcoming-events {
+        margin-top: 30px;
+    }
+    
+    .upcoming-events-item {
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #f9f9f9;
+        border-left: 4px solid #3788d8;
+        border-radius: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Agenda do Professor" %}</h5>
+                    <a href="{% url 'scheduler:event_create' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> {% trans "Novo Evento" %}
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div id="calendar" class="calendar-container"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">{% trans "Próximos Eventos" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_events %}
+                        <div class="upcoming-events">
+                            {% for event in upcoming_events %}
+                                <div class="upcoming-events-item">
+                                    <h6><a href="{% url 'scheduler:event_detail' event.id %}">{{ event.title }}</a></h6>
+                                    <div><i class="far fa-calendar"></i> {{ event.start_time|date:"d/m/Y" }}</div>
+                                    <div><i class="far fa-clock"></i> {{ event.start_time|date:"H:i" }} - {{ event.end_time|date:"H:i" }}</div>
+                                    {% if event.location %}
+                                        <div><i class="fas fa-map-marker-alt"></i> 
+                                            {% if event.location.is_online %}
+                                                {% trans "Online" %}
+                                            {% else %}
+                                                {{ event.location.name }}
+                                            {% endif %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p>{% trans "Não há eventos programados para os próximos dias." %}</p>
+                    {% endif %}
+                    
+                    <a href="{% url 'scheduler:event_list' %}" class="btn btn-outline-primary btn-sm mt-3">
+                        {% trans "Ver todos os eventos" %}
+                    </a>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% trans "Estúdios" %}</h5>
+                    <a href="{% url 'scheduler:location_create' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-plus"></i> {% trans "Novo Estúdio" %}
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if locations %}
+                        <ul class="list-group">
+                            {% for location in locations %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ location.name }}
+                                    {% if location.is_online %}
+                                        <span class="badge bg-info">{% trans "Online" %}</span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>{% trans "Nenhum local cadastrado." %}</p>
+                    {% endif %}
+                    
+                    <a href="{% url 'scheduler:location_list' %}" class="btn btn-outline-primary btn-sm mt-3">
+                        {% trans "Gerenciar estúdios" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales-all.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const calendarEl = document.getElementById('calendar');
+        
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'timeGridWeek',
+            locale: 'pt-br',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+            },
+            buttonText: {
+                today: 'Hoje',
+                month: 'Mês',
+                week: 'Semana',
+                day: 'Dia',
+                list: 'Lista'
+            },
+            slotMinTime: '07:00:00',
+            slotMaxTime: '22:00:00',
+            slotDuration: '00:30:00',
+            expandRows: true,
+            height: 'auto',
+            allDaySlot: true,
+            nowIndicator: true,
+            events: "{% url 'scheduler:api_events' %}",
+            eventClick: function(info) {
+                window.location.href = "/agenda/events/" + info.event.id + "/";
+            },
+            eventClassNames: function(arg) {
+                // Adiciona classe de cor baseada no tipo de evento
+                if (arg.event.extendedProps.event_type) {
+                    return ['event-' + arg.event.extendedProps.event_type.toLowerCase()];
+                }
+                return [];
+            }
+        });
+        
+        calendar.render();
+    });
+</script>
+{% endblock %}

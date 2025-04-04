@@ -50,6 +50,18 @@ urlpatterns = [
     # Courses management
     path('courses/', include('courses.urls')),
     
+    # Payments management
+    path('payments/', include('payments.urls')),
+    
+    # Assistant
+    path('assistant/', include('assistant.urls')),
+    
+    # Agenda do Professor
+    path('agenda/', include('scheduler.urls')),
+    
+    # Invoices
+    path('invoices/', include('invoices.urls')),
+    
     # Home page
     path('', TemplateView.as_view(template_name='home.html'), name='home'),
 ]
