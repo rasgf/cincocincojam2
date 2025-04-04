@@ -135,9 +135,15 @@
                     {% endif %}
                     
                     <div class="d-flex justify-content-between mt-4">
+                        {% if request.user.is_admin %}
                         <a href="{% url 'users:user_list' %}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Voltar
                         </a>
+                        {% else %}
+                        <a href="{% url 'users:user_detail' user_obj.id %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Voltar
+                        </a>
+                        {% endif %}
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-save"></i> Salvar
                         </button>

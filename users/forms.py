@@ -50,3 +50,13 @@ class CustomUserChangeForm(UserChangeForm):
         # Tornar alguns campos obrigatórios
         self.fields['first_name'].required = True
         self.fields['last_name'].required = True
+        
+        # Verificar se o usuário atual é admin
+        request = kwargs.get('initial', {}).get('request')
+        if request and not request.user.is_admin:
+            # Se não for admin, remover campos que usuários comuns não devem editar
+            self.fields.pop('user_type', None)
+            self.fields.pop('is_active', None)
+            
+            # E fazer o email somente leitura
+            self.fields['email'].widget.attrs['readonly'] = True

@@ -145,14 +145,15 @@ class UserCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
         return super().form_valid(form)
 
 
-class UserUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
+class UserUpdateView(LoginRequiredMixin, UserAccessMixin, UpdateView):
     """
     View para atualizar um usuário existente.
+    Administradores podem editar qualquer perfil.
+    Outros usuários podem editar apenas seus próprios perfis.
     """
     model = User
     form_class = CustomUserChangeForm
     template_name = 'users/user_form.html'
-    success_url = reverse_lazy('users:user_list')
     context_object_name = 'user_obj'
     
     def get_context_data(self, **kwargs):
@@ -160,9 +161,27 @@ class UserUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
         context['title'] = 'Editar Usuário'
         return context
     
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # Passar a request para o formulário poder verificar se o usuário é admin
+        kwargs['initial'] = kwargs.get('initial', {})
+        kwargs['initial']['request'] = self.request
+        return kwargs
+    
     def form_valid(self, form):
         messages.success(self.request, 'Usuário atualizado com sucesso!')
         return super().form_valid(form)
+        
+    def get_success_url(self):
+        # Redireciona para a lista de usuários se for admin, ou para o detalhe do próprio perfil se for usuário comum
+        if self.request.user.is_admin:
+            return reverse_lazy('users:user_list')
+        elif self.request.user.is_professor:
+            return reverse_lazy('courses:dashboard')
+        elif self.request.user.is_student:
+            return reverse_lazy('courses:student:dashboard')
+        else:
+            return reverse_lazy('users:user_detail', kwargs={'pk': self.object.pk})
 
 
 class UserDeleteView(LoginRequiredMixin, AdminRequiredMixin, DeleteView):
