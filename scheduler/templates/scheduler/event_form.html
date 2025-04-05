@@ -69,50 +69,64 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Inicializar seletores de data e hora
-        flatpickr("#start_time", {
-            enableTime: true,
-            dateFormat: "Y-m-d H:i",
-            locale: "pt",
-            time_24hr: true
-        });
+        const startTimeInput = document.getElementById('start_time');
+        const endTimeInput = document.getElementById('end_time');
         
-        flatpickr("#end_time", {
-            enableTime: true,
-            dateFormat: "Y-m-d H:i",
-            locale: "pt",
-            time_24hr: true
-        });
+        if (startTimeInput) {
+            flatpickr(startTimeInput, {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                locale: "pt",
+                time_24hr: true
+            });
+        }
+        
+        if (endTimeInput) {
+            flatpickr(endTimeInput, {
+                enableTime: true,
+                dateFormat: "Y-m-d H:i",
+                locale: "pt",
+                time_24hr: true
+            });
+        }
         
         // Atualizar interface com base no tipo de evento selecionado
-        const eventTypeSelect = document.getElementById('event_type');
-        const colorSelect = document.getElementById('color');
+        const eventTypeSelect = document.getElementById('id_event_type');
+        const colorSelect = document.getElementById('id_color');
         
-        eventTypeSelect.addEventListener('change', function() {
-            switch(this.value) {
-                case 'CLASS':
-                    colorSelect.value = '#3788d8'; // Azul
-                    break;
-                case 'MEETING':
-                    colorSelect.value = '#6aa84f'; // Verde
-                    break;
-                case 'WORKSHOP':
-                    colorSelect.value = '#9900ff'; // Roxo
-                    break;
-                case 'OTHER':
-                    colorSelect.value = '#f1c232'; // Amarelo
-                    break;
-            }
-        });
+        if (eventTypeSelect && colorSelect) {
+            eventTypeSelect.addEventListener('change', function() {
+                switch(this.value) {
+                    case 'CLASS':
+                        colorSelect.value = '#3788d8'; // Azul
+                        break;
+                    case 'MEETING':
+                        colorSelect.value = '#6aa84f'; // Verde
+                        break;
+                    case 'WORKSHOP':
+                        colorSelect.value = '#9900ff'; // Roxo
+                        break;
+                    case 'OTHER':
+                        colorSelect.value = '#f1c232'; // Amarelo
+                        break;
+                }
+            });
+        }
         
         // Mostrar/esconder o campo de recorrência
-        const isRecurringCheckbox = document.getElementById('is_recurring');
-        const recurrenceRuleField = document.getElementById('recurrence_rule').parentNode;
+        const isRecurringCheckbox = document.getElementById('id_is_recurring');
         
-        recurrenceRuleField.style.display = 'none';
-        
-        isRecurringCheckbox.addEventListener('change', function() {
-            recurrenceRuleField.style.display = this.checked ? 'block' : 'none';
-        });
+        if (isRecurringCheckbox) {
+            const recurrenceRuleField = document.getElementById('id_recurrence_rule').closest('.mb-3');
+            
+            if (recurrenceRuleField) {
+                recurrenceRuleField.style.display = isRecurringCheckbox.checked ? 'block' : 'none';
+                
+                isRecurringCheckbox.addEventListener('change', function() {
+                    recurrenceRuleField.style.display = this.checked ? 'block' : 'none';
+                });
+            }
+        }
     });
 </script>
 {% endblock %}

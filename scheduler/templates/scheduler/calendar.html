@@ -337,17 +337,17 @@
                 <div class="modal-header">
                     <h5 class="modal-title" id="booking-modal-label">{% trans "Novo Agendamento" %}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
+                </div>
                 <div class="modal-body">
                     <form id="booking-form" method="post" action="{% url 'scheduler:event_create' %}">
                         {% csrf_token %}
-                        <!-- Campos de dados do agendamento -->
-                        <input type="hidden" name="location" id="booking-location">
-                        <input type="hidden" id="booking-date" name="date">
-                        <input type="hidden" name="start_time" id="booking-start-time">
-                        <input type="hidden" name="end_time" id="booking-end-time">
-                        <input type="hidden" name="selected_students" id="selected-students-input">
-                        <input type="hidden" name="from_modal" value="true">
+                        <!-- Campo para identificar que a requisição vem do modal -->
+                        <input type="hidden" name="from_modal" value="true" />
+                        <input type="hidden" name="location" id="booking-location" />
+                        <input type="hidden" id="booking-date" name="date" />
+                        <input type="hidden" name="start_time" id="booking-start-time" />
+                        <input type="hidden" name="end_time" id="booking-end-time" />
+                        <input type="hidden" name="selected_students" id="selected-students-input" />
                         
                         <div class="mb-3" id="time-slots-container">
                             <div class="d-flex justify-content-between align-items-center mb-2">

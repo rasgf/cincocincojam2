@@ -104,30 +104,148 @@ def event_list(request):
 @login_required
 def event_create(request):
     """
-    Criar um novo evento.
+    Cria um novo evento.
     """
-    if request.method == 'POST':
-        # Processar o formulário enviado
-        location_id = request.POST.get('location')
-        
-        # Criar o evento com os dados do formulário
-        try:
-            # Processamento de criação do evento aqui...
-            
-            # Adicionar mensagem de sucesso
-            messages.success(request, _('Evento criado com sucesso!'))
-            
-            # Redirecionar para a página de calendário do local
-            if location_id:
-                return redirect('scheduler:location_calendar', pk=location_id)
-            else:
-                return redirect('scheduler:location_list')
-                
-        except Exception as e:
-            messages.error(request, _(f'Erro ao criar evento: {str(e)}'))
+    # Importações necessárias
+    from .models import EventLocation
     
-    # Em qualquer caso, redirecionar para a lista de locais para evitar a página redundante
-    return redirect('scheduler:location_list')
+    # Verifica permissão
+    if request.user.user_type != 'PROFESSOR':
+        messages.error(request, _('Apenas professores podem criar eventos.'))
+        return redirect('home')
+    
+    print("==== INICIANDO CRIAÇÃO DE EVENTO ====")
+    print(f"Request method: {request.method}")
+    
+    if request.method == 'POST':
+        print("POST data:", request.POST)
+        
+        # Verificar se é uma requisição do modal de agendamento rápido
+        if 'from_modal' in request.POST and 'start_time' in request.POST and 'end_time' in request.POST:
+            print("Detectada requisição do modal de agendamento rápido")
+            
+            # Obter dados básicos
+            location_id = request.POST.get('location')
+            location = get_object_or_404(EventLocation, id=location_id)
+            start_time = request.POST.get('start_time')
+            end_time = request.POST.get('end_time')
+            title = request.POST.get('title')
+            event_type = request.POST.get('event_type', 'CLASS')
+            
+            # Verificações básicas
+            if not title:
+                title = f"{dict(Event.EVENT_TYPE_CHOICES).get(event_type, 'Evento')} - {start_time.split('T')[0]}"
+            
+            # Criar o evento
+            event = Event(
+                title=title,
+                professor=request.user,
+                event_type=event_type,
+                location=location,
+                start_time=start_time,
+                end_time=end_time,
+                status='SCHEDULED',
+                color='#3788d8'  # Cor padrão azul
+            )
+            
+            # Campos opcionais
+            if request.POST.get('description'):
+                event.description = request.POST.get('description')
+            
+            if request.POST.get('max_participants'):
+                try:
+                    event.max_participants = int(request.POST.get('max_participants'))
+                except (ValueError, TypeError):
+                    pass
+            
+            if request.POST.get('course'):
+                from courses.models import Course
+                try:
+                    course = Course.objects.get(id=request.POST.get('course'))
+                    event.course = course
+                except Course.DoesNotExist:
+                    pass
+            
+            # Salvar o evento
+            event.save()
+            
+            # Adicionar participantes
+            if request.POST.get('selected_students'):
+                student_ids = [int(sid) for sid in request.POST.get('selected_students').split(',') if sid.strip()]
+                if student_ids:
+                    from core.models import User
+                    students = User.objects.filter(id__in=student_ids, user_type='STUDENT')
+                    for student in students:
+                        EventParticipant.objects.create(
+                            event=event,
+                            student=student,
+                            attendance_status='PENDING'
+                        )
+                    
+                    messages.info(request, _(f'Convites enviados para {len(students)} aluno(s).'))
+            
+            # Mostrar mensagem de sucesso
+            messages.success(request, _('Agendamento realizado com sucesso!'))
+            
+            # Redirecionar para o calendário
+            return HttpResponseRedirect(reverse('scheduler:location_calendar', args=[location_id]) + '?success=true')
+        
+        # Fluxo normal para o formulário completo
+        form = EventForm(request.POST, professor=request.user)
+        if form.is_valid():
+            print("Form válido, salvando evento...")
+            event = form.save(commit=False)
+            event.professor = request.user
+            event.save()
+            
+            # Processar participantes
+            selected_students = request.POST.get('selected_students', '')
+            print(f"Alunos selecionados: {selected_students}")
+            
+            if selected_students:
+                student_ids = [int(id) for id in selected_students.split(',') if id.strip()]
+                if student_ids:
+                    from core.models import User
+                    students = User.objects.filter(id__in=student_ids, user_type='STUDENT')
+                    print(f"Encontrados {students.count()} alunos para adicionar ao evento {event.id}")
+                    
+                    for student in students:
+                        participant = EventParticipant.objects.create(
+                            event=event,
+                            student=student,
+                            attendance_status='PENDING'
+                        )
+                        print(f"Criado participante ID {participant.id} para aluno {student.email}")
+                    
+                    total_participants = EventParticipant.objects.filter(event=event).count()
+                    print(f"Total de participantes após criação: {total_participants}")
+                    messages.info(request, _(f'Convites enviados para {students.count()} aluno(s).'))
+            
+            messages.success(request, _('Evento criado com sucesso!'))
+            return redirect('scheduler:event_detail', pk=event.id)
+        else:
+            print("Erros no formulário:", form.errors)
+    else:
+        # Pré-preencher com data e hora sugeridas
+        initial = {}
+        
+        # Se tiver location_id na query string, pré-selecionar o estúdio
+        location_id = request.GET.get('location')
+        if location_id:
+            try:
+                from scheduler.models import EventLocation
+                initial['location'] = EventLocation.objects.get(id=location_id)
+            except (EventLocation.DoesNotExist, ValueError):
+                pass
+        
+        form = EventForm(professor=request.user, initial=initial)
+    
+    context = {
+        'form': form,
+        'page_title': _('Novo Evento')
+    }
+    
+    return render(request, 'scheduler/event_form.html', context)
 
 @login_required
 def event_detail(request, pk):
@@ -888,7 +1006,7 @@ class EventCreateView(LoginRequiredMixin, CreateView):
     
     def post(self, request, *args, **kwargs):
         # Verificar se a requisição vem do modal (com campos ISO)
-        if 'start_time' in request.POST and 'end_time' in request.POST and not request.POST.get('start_time_hour'):
+        if 'start_time' in request.POST and 'end_time' in request.POST and 'from_modal' in request.POST:
             # 1. Criar evento com os dados do modal
             location_id = request.POST.get('location')
             location = get_object_or_404(EventLocation, id=location_id)
@@ -909,7 +1027,8 @@ class EventCreateView(LoginRequiredMixin, CreateView):
                 location=location,
                 start_time=start_time,
                 end_time=end_time,
-                status='SCHEDULED'
+                status='SCHEDULED',
+                color='#3788d8'  # Cor padrão azul
             )
             
             # Campos opcionais
@@ -917,7 +1036,10 @@ class EventCreateView(LoginRequiredMixin, CreateView):
                 event.description = request.POST.get('description')
             
             if request.POST.get('max_participants'):
-                event.max_participants = request.POST.get('max_participants')
+                try:
+                    event.max_participants = int(request.POST.get('max_participants'))
+                except (ValueError, TypeError):
+                    pass
             
             if request.POST.get('course'):
                 from courses.models import Course
