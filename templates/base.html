@@ -21,52 +21,40 @@
     <!-- CSS para o widget de chat -->
     <link rel="stylesheet" href="{% static 'css/chat-widget.css' %}">
     
-    <!-- Script para gerenciar temas claro/escuro com dropdown menu -->
+    <!-- Script para gerenciar temas claro/escuro com toggle de botão -->
     <script>
         /**
          * Sistema de temas do 55Jam
-         * Implementação com menu dropdown para seleção direta do tema desejado:
-         * - Modo Claro: Força o tema claro em toda a interface
-         * - Modo Escuro: Força o tema escuro em toda a interface
-         * - Modo Automático: Segue a preferência do sistema operacional
+         * Implementação com botão de alternância direta entre temas:
+         * - Clique alterna entre Modo Claro e Modo Escuro
          */
         
         // Aplicar o tema imediatamente para evitar flash de tema incorreto
         (function() {
             // Obtém o tema salvo ou padrão
-            const savedMode = localStorage.getItem('themeMode') || 'auto';
-            const themeToApply = savedMode === 'auto' ? 
-                (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : 
-                savedMode;
+            const savedTheme = localStorage.getItem('theme') || 'light';
             
             // Aplica imediatamente para evitar flash
-            document.documentElement.setAttribute('data-bs-theme', themeToApply);
+            document.documentElement.setAttribute('data-bs-theme', savedTheme);
         })();
 
-        // Função para verificar a preferência de tema do sistema operacional
-        function getSystemThemePreference() {
-            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        // Função para obter o tema atual
+        function getCurrentTheme() {
+            return localStorage.getItem('theme') || 'light';
         }
         
-        // Função para obter o modo atual de tema salvo (ou o padrão 'auto')
-        function getCurrentThemeMode() {
-            return localStorage.getItem('themeMode') || 'auto';
-        }
-        
-        // Função para definir o tema diretamente - chamada pelas opções do dropdown
-        function setTheme(mode) {
-            if (!['light', 'dark', 'auto'].includes(mode)) {
-                console.error('Modo de tema inválido:', mode);
-                return;
-            }
+        // Função para alternar entre temas claro e escuro
+        function toggleTheme() {
+            const currentTheme = getCurrentTheme();
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
             
             // Salva a preferência do usuário
-            localStorage.setItem('themeMode', mode);
-            console.log('Tema definido para:', mode);
+            localStorage.setItem('theme', newTheme);
+            console.log('Tema alterado para:', newTheme);
             
             // Aplica o tema e atualiza a interface
-            applyTheme(mode);
-            updateThemeIcon(mode);
+            applyTheme(newTheme);
+            updateThemeIcon(newTheme);
         }
         
         // Função para aplicar o estilo do tema a elementos específicos que podem não seguir o tema global
@@ -149,81 +137,54 @@
             console.log('Tema aplicado com sucesso:', theme);
         }
         
-        // Função principal para resolver e aplicar o tema correto
-        function applyTheme(mode) {
-            let themeToApply;
-            
-            // Determina qual tema aplicar com base no modo
-            if (mode === 'auto') {
-                // No modo automático, segue a preferência do sistema
-                themeToApply = getSystemThemePreference();
-                console.log('Modo automático ativado - usando tema do sistema:', themeToApply);
-            } else {
-                // Nos modos explícitos, aplica diretamente
-                themeToApply = mode;
-                console.log('Modo manual ativado:', mode);
-            }
-            
-            // Aplica o tema resolvido
-            applyThemeToDocument(themeToApply);
-            
-            return themeToApply;
+        // Função principal para aplicar o tema
+        function applyTheme(theme) {
+            // Aplica o tema
+            applyThemeToDocument(theme);
+            return theme;
         }
         
-        // Função para atualizar o ícone do dropdown conforme o modo atual
-        function updateThemeIcon(mode) {
+        // Função para atualizar o ícone do botão conforme o tema atual
+        function updateThemeIcon(theme) {
             // Obtém referência ao ícone atual
-            const currentThemeIcon = document.getElementById('theme-icon-current');
-            if (!currentThemeIcon) {
-                console.error('Erro: Ícone de tema atual não encontrado!');
+            const sunIcon = document.getElementById('theme-icon-sun');
+            const moonIcon = document.getElementById('theme-icon-moon');
+            
+            if (!sunIcon || !moonIcon) {
+                console.error('Erro: Ícones de tema não encontrados!');
                 return;
             }
             
-            // Atualiza o ícone com base no modo
-            currentThemeIcon.className = ''; // Limpa classes existentes
-            if (mode === 'light') {
-                currentThemeIcon.className = 'fas fa-sun';
-            } else if (mode === 'dark') {
-                currentThemeIcon.className = 'fas fa-moon';
-            } else { // auto
-                currentThemeIcon.className = 'fas fa-adjust';
+            // Mostra o ícone adequado para o tema atual
+            if (theme === 'light') {
+                sunIcon.style.display = 'inline-block';
+                moonIcon.style.display = 'none';
+            } else { // dark
+                sunIcon.style.display = 'none';
+                moonIcon.style.display = 'inline-block';
             }
             
-            // Destaca visualmente a opção selecionada no dropdown (será aplicado quando o dropdown estiver aberto)
-            document.querySelectorAll('#themeDropdown + .dropdown-menu .dropdown-item').forEach(item => {
-                item.classList.remove('active', 'bg-primary', 'text-white');
-                
-                // Verifica qual item está selecionado atualmente
-                const itemMode = item.getAttribute('onclick').includes("'light'") ? 'light' : 
-                                item.getAttribute('onclick').includes("'dark'") ? 'dark' : 'auto';
-                
-                if (itemMode === mode) {
-                    item.classList.add('active', 'bg-primary', 'text-white');
-                }
-            });
-            
-            console.log('Ícone atualizado para o modo:', mode);
+            console.log('Ícone atualizado para o tema:', theme);
         }
         
         // Função de inicialização imediata
         (function() {
-            const initialMode = getCurrentThemeMode();
-            const initialTheme = applyTheme(initialMode);
-            console.log('Sistema de temas inicializado - Modo:', initialMode, '/ Tema aplicado:', initialTheme);
+            const initialTheme = getCurrentTheme();
+            applyTheme(initialTheme);
+            console.log('Sistema de temas inicializado - Tema aplicado:', initialTheme);
         })();
         
         // Configuração final quando o DOM estiver completamente carregado
         document.addEventListener('DOMContentLoaded', function() {
-            // Atualiza o ícone para corresponder ao modo atual
-            updateThemeIcon(getCurrentThemeMode());
+            // Atualiza o ícone para corresponder ao tema atual
+            updateThemeIcon(getCurrentTheme());
             
-            // Configura um listener para mudanças na preferência do sistema
-            if (window.matchMedia) {
-                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-                    // Se estiver no modo automático, reaplica o tema conforme mudança do sistema
-                    if (getCurrentThemeMode() === 'auto') {
-                        applyTheme('auto');
-                    }
+            // Configura o evento de clique no botão de tema
+            const themeToggleBtn = document.getElementById('theme-toggle-btn');
+            if (themeToggleBtn) {
+                themeToggleBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    toggleTheme();
                 });
             }
             
@@ -268,48 +229,106 @@
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'courses:dashboard' %}">Dashboard</a>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'scheduler:calendar' %}">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="agendaDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                     <i class="fas fa-calendar-alt"></i> Agenda
                                 </a>
+                                <ul class="dropdown-menu" aria-labelledby="agendaDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'scheduler:calendar' %}">
+                                            <i class="fas fa-calendar-alt me-2"></i> Calendário
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'scheduler:professor_dashboard' %}">
+                                            <i class="fas fa-chalkboard-teacher me-2"></i> Agendamentos
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'scheduler:professor_dashboard' %}">
-                                    <i class="fas fa-chalkboard-teacher"></i> Agendamentos
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="financasDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-chart-line"></i> Finanças
                                 </a>
+                                <ul class="dropdown-menu" aria-labelledby="financasDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'payments:professor_dashboard' %}">
+                                            <i class="fas fa-chart-line me-2"></i> Financeiro
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'payments:singlesale_list' %}">
+                                            <i class="fas fa-shopping-cart me-2"></i> Vendas Avulsas
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'payments:professor_dashboard' %}">
-                                    <i class="fas fa-chart-line"></i> Financeiro
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="cursosDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-book"></i> Cursos
                                 </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'courses:course_list' %}">Meus Cursos</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'courses:student:course_list' %}">Catálogo de Cursos</a>
+                                <ul class="dropdown-menu" aria-labelledby="cursosDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'courses:course_list' %}">
+                                            <i class="fas fa-chalkboard me-2"></i> Meus Cursos
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'courses:student:course_list' %}">
+                                            <i class="fas fa-list-alt me-2"></i> Catálogo de Cursos
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
                         {% endif %}
                         
                         {% if user.is_student %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'courses:student:dashboard' %}">Meus Cursos</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'scheduler:student_notifications' %}">
-                                    <i class="fas fa-calendar-check"></i> Agendamentos
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="agendaStudentDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-calendar-check"></i> Agenda
                                     {% if pending_invitations_count > 0 %}
                                     <span class="badge rounded-pill bg-danger">{{ pending_invitations_count }}</span>
                                     {% endif %}
                                 </a>
+                                <ul class="dropdown-menu" aria-labelledby="agendaStudentDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'scheduler:student_notifications' %}">
+                                            <i class="fas fa-bell me-2"></i> Agendamentos
+                                            {% if pending_invitations_count > 0 %}
+                                            <span class="badge rounded-pill bg-danger">{{ pending_invitations_count }}</span>
+                                            {% endif %}
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'payments:student_payments' %}">
-                                    <i class="fas fa-credit-card"></i> Meus Pagamentos
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="financasStudentDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-credit-card"></i> Finanças
                                 </a>
+                                <ul class="dropdown-menu" aria-labelledby="financasStudentDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'payments:student_payments' %}">
+                                            <i class="fas fa-money-bill-wave me-2"></i> Meus Pagamentos
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'courses:student:course_list' %}">Catálogo de Cursos</a>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="cursosStudentDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-book"></i> Cursos
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="cursosStudentDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'courses:student:dashboard' %}">
+                                            <i class="fas fa-graduation-cap me-2"></i> Meus Cursos
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'courses:student:course_list' %}">
+                                            <i class="fas fa-list-alt me-2"></i> Catálogo de Cursos
+                                        </a>
+                                    </li>
+                                </ul>
                             </li>
                         {% endif %}
                         
@@ -349,29 +368,12 @@
                         </a>
                     </li>
                     
-                    <!-- Menu dropdown para seleção de tema -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="themeDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i id="theme-icon-current" class="fas fa-adjust"></i>
-                            <span class="d-none d-md-inline ms-1">Tema</span>
+                    <!-- Botão de alternância de tema -->
+                    <li class="nav-item ms-2">
+                        <a class="nav-link" href="#" id="theme-toggle-btn" title="Alternar tema claro/escuro">
+                            <i id="theme-icon-sun" class="fas fa-sun"></i>
+                            <i id="theme-icon-moon" class="fas fa-moon" style="display: none;"></i>
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown">
-                            <li>
-                                <a class="dropdown-item" href="javascript:void(0);" onclick="setTheme('light')">
-                                    <i class="fas fa-sun me-2"></i> Modo Claro
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="javascript:void(0);" onclick="setTheme('dark')">
-                                    <i class="fas fa-moon me-2"></i> Modo Escuro
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="javascript:void(0);" onclick="setTheme('auto')">
-                                    <i class="fas fa-adjust me-2"></i> Automático (Sistema)
-                                </a>
-                            </li>
-                        </ul>
                     </li>
                 </ul>
             </div>

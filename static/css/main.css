@@ -134,3 +134,56 @@ main {
     background-color: #f8f9fa;
     border-bottom: 1px solid #e9ecef;
 }
+
+/* Botão de alternância de tema */
+#theme-toggle-btn {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+#theme-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+#theme-icon-sun, #theme-icon-moon {
+    position: absolute;
+    transition: all 0.3s ease;
+}
+
+/* Ajuste dos ícones com base no tema atual */
+[data-bs-theme="light"] #theme-icon-sun {
+    opacity: 1;
+    transform: rotate(0);
+}
+
+[data-bs-theme="light"] #theme-icon-moon {
+    opacity: 0;
+    transform: rotate(90deg);
+}
+
+[data-bs-theme="dark"] #theme-icon-sun {
+    opacity: 0;
+    transform: rotate(-90deg);
+}
+
+[data-bs-theme="dark"] #theme-icon-moon {
+    opacity: 1;
+    transform: rotate(0);
+}
+
+/* Efeito hover */
+#theme-toggle-btn:hover #theme-icon-sun {
+    transform: rotate(45deg);
+}
+
+#theme-toggle-btn:hover #theme-icon-moon {
+    transform: rotate(-45deg);
+}
