@@ -40,10 +40,23 @@ pix_patterns = [
     path('pix/simulate/<int:payment_id>/', pix_views.simulate_pix_payment, name='simulate_pix_payment'),
 ]
 
+# URLs para vendas avulsas
+singlesale_patterns = [
+    path('sales/', views.SingleSaleListView.as_view(), name='singlesale_list'),
+    path('sales/new/', views.SingleSaleCreateView.as_view(), name='singlesale_create'),
+    path('sales/<int:pk>/', views.SingleSaleDetailView.as_view(), name='singlesale_detail'),
+    path('sales/<int:pk>/edit/', views.SingleSaleUpdateView.as_view(), name='singlesale_update'),
+    path('sales/<int:sale_id>/pix/create/', views.create_singlesale_pix, name='create_singlesale_pix'),
+    path('sales/<int:sale_id>/pix/', views.singlesale_pix_detail, name='singlesale_pix_detail'),
+    path('sales/<int:sale_id>/check-status/', views.check_singlesale_payment_status, name='check_singlesale_status'),
+    path('admin/sales/', views.SingleSaleAdminListView.as_view(), name='admin_singlesale_list'),
+]
+
 urlpatterns = [
     # Incluir todas as URLs
     *professor_patterns,
     *admin_patterns,
     *student_patterns,
     *pix_patterns,
+    *singlesale_patterns,
 ]

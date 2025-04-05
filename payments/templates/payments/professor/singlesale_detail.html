@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% translate "Detalhes da Venda" %} #{{ sale.id }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{% translate "Venda" %} #{{ sale.id }}</h1>
+        <div>
+            <a href="{% url 'payments:singlesale_list' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i> {% translate "Voltar" %}
+            </a>
+            <a href="{% url 'payments:singlesale_update' pk=sale.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit me-1"></i> {% translate "Editar" %}
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Detalhes da Venda -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">{% translate "Informações da Venda" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-1">{% translate "Descrição" %}</h6>
+                            <p class="mb-3">{{ sale.description }}</p>
+
+                            <h6 class="text-muted mb-1">{% translate "Valor" %}</h6>
+                            <p class="mb-3">R$ {{ sale.amount|floatformat:2|intcomma }}</p>
+
+                            <h6 class="text-muted mb-1">{% translate "Status" %}</h6>
+                            <p class="mb-3">
+                                {% if sale.status == 'PAID' %}
+                                    <span class="badge bg-success">{{ sale.get_status_display }}</span>
+                                {% elif sale.status == 'PENDING' %}
+                                    <span class="badge bg-warning text-dark">{{ sale.get_status_display }}</span>
+                                {% elif sale.status == 'REFUNDED' %}
+                                    <span class="badge bg-info">{{ sale.get_status_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{{ sale.get_status_display }}</span>
+                                {% endif %}
+                            </p>
+
+                            <h6 class="text-muted mb-1">{% translate "Data de Criação" %}</h6>
+                            <p class="mb-3">{{ sale.created_at|date:"d/m/Y H:i" }}</p>
+
+                            {% if sale.paid_at %}
+                            <h6 class="text-muted mb-1">{% translate "Data de Pagamento" %}</h6>
+                            <p class="mb-3">{{ sale.paid_at|date:"d/m/Y H:i" }}</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-1">{% translate "Cliente" %}</h6>
+                            <p class="mb-3">{{ sale.customer_name }}</p>
+
+                            <h6 class="text-muted mb-1">{% translate "E-mail" %}</h6>
+                            <p class="mb-3">{{ sale.customer_email }}</p>
+
+                            {% if sale.customer_cpf %}
+                            <h6 class="text-muted mb-1">{% translate "CPF" %}</h6>
+                            <p class="mb-3">{{ sale.customer_cpf }}</p>
+                            {% endif %}
+
+                            <h6 class="text-muted mb-1">{% translate "Método de Pagamento" %}</h6>
+                            <p class="mb-3">{{ sale.payment_method|upper }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Notas Fiscais vinculadas -->
+                    {% if sale.invoices.exists %}
+                    <hr>
+                    <h6 class="mb-3">{% translate "Notas Fiscais" %}</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>{% translate "ID" %}</th>
+                                    <th>{% translate "Status" %}</th>
+                                    <th>{% translate "Data" %}</th>
+                                    <th>{% translate "Ações" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for invoice in sale.invoices.all %}
+                                <tr>
+                                    <td>{{ invoice.id }}</td>
+                                    <td>
+                                        {% if invoice.status == 'approved' %}
+                                            <span class="badge bg-success">{{ invoice.get_status_display }}</span>
+                                        {% elif invoice.status == 'pending' %}
+                                            <span class="badge bg-warning text-dark">{{ invoice.get_status_display }}</span>
+                                        {% elif invoice.status == 'processing' %}
+                                            <span class="badge bg-info">{{ invoice.get_status_display }}</span>
+                                        {% elif invoice.status == 'error' %}
+                                            <span class="badge bg-danger">{{ invoice.get_status_display }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ invoice.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ invoice.created_at|date:"d/m/Y" }}</td>
+                                    <td>
+                                        {% if invoice.focus_pdf_url %}
+                                        <a href="{{ invoice.focus_pdf_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-file-pdf"></i>
+                                        </a>
+                                        {% endif %}
+                                        {% if invoice.focus_xml_url %}
+                                        <a href="{{ invoice.focus_xml_url }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-file-code"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Ações e Pagamento -->
+        <div class="col-md-4">
+            <!-- Card de Ações -->
+            <div class="card mb-4">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">{% translate "Ações" %}</h5>
+                </div>
+                <div class="card-body">
+                    {% if sale.status == 'PENDING' %}
+                        {% if sale.brcode %}
+                            <a href="{% url 'payments:singlesale_pix_detail' sale_id=sale.id %}" class="btn btn-success w-100 mb-3">
+                                <i class="fas fa-qrcode me-1"></i> {% translate "Ver Pix Gerado" %}
+                            </a>
+                            <a href="#" class="btn btn-outline-primary w-100 mb-3" onclick="checkPaymentStatus(); return false;">
+                                <i class="fas fa-sync-alt me-1"></i> {% translate "Verificar Pagamento" %}
+                            </a>
+                        {% else %}
+                            <a href="{% url 'payments:create_singlesale_pix' sale_id=sale.id %}" class="btn btn-primary w-100 mb-3">
+                                <i class="fas fa-qrcode me-1"></i> {% translate "Gerar Pagamento Pix" %}
+                            </a>
+                        {% endif %}
+                    {% endif %}
+
+                    {% if sale.status == 'PAID' and not sale.invoices.exists %}
+                        <a href="#" class="btn btn-outline-primary w-100 mb-3">
+                            <i class="fas fa-file-invoice me-1"></i> {% translate "Emitir Nota Fiscal" %}
+                        </a>
+                    {% endif %}
+
+                    <!-- Compartilhar link de pagamento (se pendente) -->
+                    {% if sale.status == 'PENDING' and sale.brcode %}
+                        <div class="mt-3">
+                            <label for="payment-link" class="form-label">{% translate "Link de Pagamento" %}</label>
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" id="payment-link" value="{{ request.scheme }}://{{ request.get_host }}{% url 'payments:singlesale_pix_detail' sale_id=sale.id %}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" onclick="copyPaymentLink()">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                            <div id="link-copied" class="text-success" style="display: none;">
+                                <i class="fas fa-check"></i> {% translate "Link copiado!" %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Card de Status (se tiver pagamento) -->
+            {% if sale.brcode %}
+            <div class="card">
+                <div class="card-header bg-transparent">
+                    <h5 class="card-title mb-0">{% translate "Status do Pagamento" %}</h5>
+                </div>
+                <div class="card-body">
+                    <div id="payment-status">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="me-3">
+                                {% if sale.status == 'PAID' %}
+                                    <i class="fas fa-check-circle text-success fa-3x"></i>
+                                {% elif sale.status == 'PENDING' %}
+                                    <i class="fas fa-clock text-warning fa-3x"></i>
+                                {% else %}
+                                    <i class="fas fa-exclamation-circle text-danger fa-3x"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-0" id="status-text">
+                                    {% if sale.status == 'PAID' %}
+                                        {% translate "Pagamento Confirmado" %}
+                                    {% elif sale.status == 'PENDING' %}
+                                        {% translate "Aguardando Pagamento" %}
+                                    {% else %}
+                                        {{ sale.get_status_display }}
+                                    {% endif %}
+                                </h6>
+                                <p class="text-muted mb-0" id="status-update-time">
+                                    {% if sale.paid_at %}
+                                        {% translate "Pago em" %}: {{ sale.paid_at|date:"d/m/Y H:i" }}
+                                    {% else %}
+                                        {% translate "Atualizado em" %}: {{ sale.updated_at|date:"d/m/Y H:i" }}
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="loading-status" style="display: none;">
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">{% translate "Carregando..." %}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function copyPaymentLink() {
+        const linkInput = document.getElementById('payment-link');
+        linkInput.select();
+        document.execCommand('copy');
+        
+        const linkCopied = document.getElementById('link-copied');
+        linkCopied.style.display = 'block';
+        
+        setTimeout(() => {
+            linkCopied.style.display = 'none';
+        }, 3000);
+    }
+    
+    function checkPaymentStatus() {
+        // Mostrar loading
+        document.getElementById('payment-status').style.display = 'none';
+        document.getElementById('loading-status').style.display = 'block';
+        
+        // Fazer a requisição para verificar o status
+        fetch('{% url "payments:check_singlesale_status" sale_id=sale.id %}')
+            .then(response => response.json())
+            .then(data => {
+                // Ocultar loading
+                document.getElementById('loading-status').style.display = 'none';
+                document.getElementById('payment-status').style.display = 'block';
+                
+                // Atualizar os elementos conforme o status retornado
+                if (data.status === 'PAID') {
+                    document.getElementById('status-text').innerHTML = '{% translate "Pagamento Confirmado" %}';
+                    document.getElementById('status-text').parentNode.previousElementSibling.innerHTML = '<i class="fas fa-check-circle text-success fa-3x"></i>';
+                    
+                    if (data.paid_at) {
+                        document.getElementById('status-update-time').innerHTML = '{% translate "Pago em" %}: ' + new Date(data.paid_at).toLocaleString();
+                    }
+                    
+                    // Recarregar a página após 2 segundos para atualizar tudo
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao verificar status:', error);
+                document.getElementById('loading-status').style.display = 'none';
+                document.getElementById('payment-status').style.display = 'block';
+                alert('{% translate "Erro ao verificar o status do pagamento. Tente novamente." %}');
+            });
+    }
+</script>
+{% endblock %} 

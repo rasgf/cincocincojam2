@@ -221,8 +221,60 @@ class Invoice(models.Model):
         'payments.PaymentTransaction', 
         on_delete=models.CASCADE, 
         related_name='invoices',
-        verbose_name=_('transação')
+        verbose_name=_('transação'),
+        null=True,
+        blank=True
     )
+    
+    singlesale = models.ForeignKey(
+        'payments.SingleSale',
+        on_delete=models.CASCADE,
+        related_name='invoices',
+        verbose_name=_('venda avulsa'),
+        null=True,
+        blank=True
+    )
+    
+    # Campos para uso direto (quando não houver transação ou venda avulsa)
+    amount = models.DecimalField(
+        _('valor'), 
+        max_digits=10, 
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+    customer_name = models.CharField(
+        _('nome do cliente'),
+        max_length=255,
+        null=True,
+        blank=True
+    )
+    customer_email = models.EmailField(
+        _('email do cliente'),
+        max_length=255,
+        null=True,
+        blank=True
+    )
+    customer_tax_id = models.CharField(
+        _('CPF/CNPJ do cliente'),
+        max_length=20,
+        null=True,
+        blank=True
+    )
+    description = models.CharField(
+        _('descrição'),
+        max_length=255,
+        null=True,
+        blank=True
+    )
+    
+    type = models.CharField(
+        _('tipo'),
+        max_length=10,
+        choices=[('nfse', 'NFSe'), ('nfe', 'NFe'), ('rps', 'RPS')],
+        default='rps'
+    )
+    
     status = models.CharField(
         max_length=20, 
         choices=STATUS_CHOICES, 
@@ -334,4 +386,4 @@ class Invoice(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"NFe #{self.id} - {self.transaction.id} - {self.get_status_display()}"
+        return f"NFe #{self.id} - {self.transaction.id if self.transaction else self.singlesale.id} - {self.get_status_display()}"

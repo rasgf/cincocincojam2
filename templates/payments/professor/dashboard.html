@@ -6,6 +6,9 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Dashboard Financeiro</h2>
     <div>
+        <a href="{% url 'payments:singlesale_list' %}" class="btn btn-outline-success me-2">
+            <i class="fas fa-shopping-cart"></i> Vendas Avulsas
+        </a>
         <a href="{% url 'payments:professor_students' %}" class="btn btn-outline-primary me-2">
             <i class="fas fa-users"></i> Gerenciar Alunos
         </a>
@@ -17,7 +20,7 @@
 
 <div class="row">
     <!-- Card de Cursos -->
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card shadow mb-4">
             <div class="card-body text-center">
                 <div class="display-4 text-primary mb-2">{{ courses_count }}</div>
@@ -32,7 +35,7 @@
     </div>
 
     <!-- Card de Alunos -->
-    <div class="col-md-3">
+    <div class="col-md-2">
         <div class="card shadow mb-4">
             <div class="card-body text-center">
                 <div class="display-4 text-info mb-2">{{ active_students_count }}</div>
@@ -42,6 +45,23 @@
                 </div>
                 <hr>
                 <a href="{% url 'payments:professor_students' %}" class="btn btn-sm btn-outline-info">Ver Alunos</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Card de Vendas Avulsas -->
+    <div class="col-md-2">
+        <div class="card shadow mb-4">
+            <div class="card-body text-center">
+                <div class="display-4 text-success mb-2">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <h4>Vendas Avulsas</h4>
+                <div class="small text-muted">
+                    <span class="badge bg-success">Pagamentos diretos</span>
+                </div>
+                <hr>
+                <a href="{% url 'payments:singlesale_list' %}" class="btn btn-sm btn-outline-success">Ver Vendas</a>
             </div>
         </div>
     </div>
