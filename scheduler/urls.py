@@ -28,6 +28,10 @@ urlpatterns = [
     path('events/<int:event_id>/participants/', views.participant_list, name='participant_list'),
     path('events/<int:event_id>/participants/add/', views.add_participant, name='add_participant'),
     
+    # Dashboard e Notificações
+    path('professor/dashboard/', views.professor_dashboard, name='professor_dashboard'),
+    path('student/notifications/', views.student_notifications, name='student_notifications'),
+    
     # API para AJAX/Fetch
     path('api/events/', views.api_events, name='api_events'),
     path('api/events/<int:pk>/', views.api_event_detail, name='api_event_detail'),

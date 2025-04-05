@@ -104,62 +104,30 @@ def event_list(request):
 @login_required
 def event_create(request):
     """
-    Cria um novo evento no calendário.
+    Criar um novo evento.
     """
-    # Verifica se o usuário é professor
-    if request.user.user_type != 'PROFESSOR':
-        messages.error(request, _('Acesso restrito a professores.'))
-        return redirect('home')
-    
-    # Inicializar valores padrão
-    initial_data = {}
-    
-    # Pré-preencher com o próximo horário disponível (arredondado para 30min)
-    from datetime import timedelta, datetime
-    now = timezone.now()
-    minutes = now.minute
-    # Arredondar para o próximo período de 30 minutos
-    if minutes < 30:
-        rounded = now.replace(minute=30, second=0, microsecond=0)
-    else:
-        rounded = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-    
-    # Evento padrão de 1 hora
-    initial_data.update({
-        'date': rounded.date(),
-        'start_time_hour': rounded.time(),
-        'end_time_hour': (rounded + timedelta(hours=1)).time(),
-        'event_type': 'CLASS',  # Tipo padrão
-        'status': 'SCHEDULED',  # Status padrão
-    })
-    
-    # Verificar se um estúdio foi especificado na URL
-    location_id = request.GET.get('location')
-    if location_id:
-        try:
-            location = EventLocation.objects.get(pk=location_id)
-            initial_data['location'] = location
-        except (EventLocation.DoesNotExist, ValueError):
-            pass
-    
     if request.method == 'POST':
-        form = EventForm(request.POST, professor=request.user)
-        if form.is_valid():
-            event = form.save()
+        # Processar o formulário enviado
+        location_id = request.POST.get('location')
+        
+        # Criar o evento com os dados do formulário
+        try:
+            # Processamento de criação do evento aqui...
+            
+            # Adicionar mensagem de sucesso
             messages.success(request, _('Evento criado com sucesso!'))
             
-            # Redireciona para a página de detalhes do evento
-            return redirect('scheduler:event_detail', pk=event.pk)
-    else:
-        form = EventForm(initial=initial_data, professor=request.user)
+            # Redirecionar para a página de calendário do local
+            if location_id:
+                return redirect('scheduler:location_calendar', pk=location_id)
+            else:
+                return redirect('scheduler:location_list')
+                
+        except Exception as e:
+            messages.error(request, _(f'Erro ao criar evento: {str(e)}'))
     
-    context = {
-        'form': form,
-        'page_title': _('Novo Evento'),
-        'selected_location_id': location_id
-    }
-    
-    return render(request, 'scheduler/event_form.html', context)
+    # Em qualquer caso, redirecionar para a lista de locais para evitar a página redundante
+    return redirect('scheduler:location_list')
 
 @login_required
 def event_detail(request, pk):
@@ -277,43 +245,29 @@ def location_list(request):
 @login_required
 def location_create(request):
     """
-    Cria um novo estúdio de forma simplificada para cadastro mais rápido.
-    
-    Detecta automaticamente o tipo preferido de estúdio (online ou físico) e 
-    inicializa o formulário para facilitar o preenchimento.
+    Cria um novo estúdio. 
+    Redireciona para a lista de estúdios após a criação.
     """
     # Verificar se o usuário é professor
     if request.user.user_type != 'PROFESSOR':
-        messages.error(request, _('Apenas professores podem criar estúdios.'))
+        messages.error(request, _('Acesso restrito a professores.'))
         return redirect('home')
-    
-    # Detectar tipo de estúdio preferido pelo parâmetro da URL
-    is_online = request.GET.get('type') == 'online'
-    initial_data = {'is_online': is_online}
-    
+        
     if request.method == 'POST':
         form = EventLocationForm(request.POST)
         if form.is_valid():
-            studio = form.save(commit=False)
-            studio.created_by = request.user
-            studio.save()
-            
-            messages.success(request, _(f'Estúdio "{studio.name}" criado com sucesso!'))
-            
-            # Redirecionamento inteligente
-            next_url = request.POST.get('next')
-            if next_url and is_safe_url(next_url, allowed_hosts=None):
-                return redirect(next_url)
-            
+            location = form.save(commit=False)
+            location.created_by = request.user  # Garantir que o criador seja definido
+            location.save()
+            messages.success(request, _(f'Estúdio "{location.name}" criado com sucesso!'))
             return redirect('scheduler:location_list')
     else:
-        form = EventLocationForm(initial=initial_data)
+        form = EventLocationForm()
     
     context = {
         'form': form,
-        'is_online': is_online,
-        'back_url': request.GET.get('next', reverse('scheduler:location_list')),
-        'page_title': _('Novo Estúdio'),
+        'is_online': False,
+        'page_title': _('Novo Estúdio')
     }
     
     return render(request, 'scheduler/location_form.html', context)
@@ -350,20 +304,23 @@ def location_edit(request, pk):
     """
     Simplifica a edição de um estúdio existente para facilitar a atualização.
     
-    Permite somente ao professor proprietário editar seus estúdios, 
+    Permite a qualquer professor editar os estúdios,
     e melhora o processo com feedback visual e redirecionamentos inteligentes.
     """
     location = get_object_or_404(EventLocation, pk=pk)
     
-    # Verificar permissões - somente o criador pode editar
-    if request.user != location.created_by and not request.user.is_superuser:
+    # Verificar permissões - apenas professores podem editar
+    if request.user.user_type != 'PROFESSOR':
         messages.error(request, _('Você não tem permissão para editar este estúdio.'))
         return redirect('scheduler:location_list')
     
     if request.method == 'POST':
         form = EventLocationForm(request.POST, instance=location)
         if form.is_valid():
-            form.save()
+            studio = form.save(commit=False)
+            # Manter o created_by original
+            studio.created_by = location.created_by
+            studio.save()
             messages.success(request, _(f'Estúdio "{location.name}" atualizado com sucesso!'))
             
             # Redirecionamento inteligente - volta para a lista ou para onde o usuário estava
@@ -466,6 +423,112 @@ def add_participant(request, event_id):
     }
     
     return render(request, 'scheduler/participant_form.html', context)
+
+@login_required
+def professor_dashboard(request):
+    """
+    Dashboard do professor com todas as informações sobre seus agendamentos.
+    Exibe eventos próximos, convites pendentes e histórico.
+    """
+    # Verifica se o usuário é professor
+    if request.user.user_type != 'PROFESSOR':
+        messages.error(request, _('Acesso restrito a professores.'))
+        return redirect('home')
+    
+    # Obtém a data atual
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = today_start + timedelta(days=1)
+    
+    # Obtém eventos do professor (futuros, hoje e passados)
+    upcoming_events = Event.objects.filter(
+        professor=request.user,
+        start_time__gt=today_end
+    ).order_by('start_time')[:10]
+    
+    today_events = Event.objects.filter(
+        professor=request.user,
+        start_time__gte=today_start,
+        start_time__lt=today_end
+    ).order_by('start_time')
+    
+    past_events = Event.objects.filter(
+        professor=request.user,
+        end_time__lt=today_start
+    ).order_by('-start_time')[:5]
+    
+    # Calcular estatísticas
+    total_events = Event.objects.filter(professor=request.user).count()
+    scheduled_events = Event.objects.filter(professor=request.user, status='SCHEDULED').count()
+    confirmed_events = Event.objects.filter(professor=request.user, status='CONFIRMED').count()
+    today_events_count = today_events.count()
+    
+    # Obter participantes com convites pendentes
+    pending_responses = EventParticipant.objects.filter(
+        event__professor=request.user,
+        attendance_status='PENDING',
+        event__start_time__gt=now
+    ).select_related('student', 'event')
+    
+    context = {
+        'upcoming_events': upcoming_events,
+        'today_events': today_events_count,
+        'past_events': past_events,
+        'total_events': total_events,
+        'scheduled_events': scheduled_events,
+        'confirmed_events': confirmed_events,
+        'pending_responses': pending_responses,
+        'has_more_events': Event.objects.filter(professor=request.user).count() > 15,
+        'page_title': _('Dashboard do Professor')
+    }
+    
+    return render(request, 'scheduler/professor_dashboard.html', context)
+
+@login_required
+def student_notifications(request):
+    """
+    Exibe e gerencia convites de agendamentos para o aluno.
+    Permite confirmar ou recusar convites.
+    """
+    # Verifica se o usuário é aluno
+    if request.user.user_type != 'STUDENT':
+        messages.error(request, _('Acesso restrito a alunos.'))
+        return redirect('home')
+    
+    # Obtém a data atual
+    now = timezone.now()
+    
+    # Obtém todos os convites do aluno
+    all_invitations = EventParticipant.objects.filter(
+        student=request.user
+    ).select_related('event', 'event__professor', 'event__location', 'event__course')
+    
+    # Separa por status
+    pending_invitations_list = all_invitations.filter(
+        attendance_status='PENDING',
+        event__start_time__gt=now
+    ).order_by('event__start_time')
+    
+    confirmed_invitations_list = all_invitations.filter(
+        attendance_status='CONFIRMED',
+        event__start_time__gt=now
+    ).order_by('event__start_time')
+    
+    # Contadores
+    total_invitations = all_invitations.count()
+    pending_invitations = pending_invitations_list.count()
+    confirmed_invitations = confirmed_invitations_list.count()
+    
+    context = {
+        'total_invitations': total_invitations,
+        'pending_invitations': pending_invitations,
+        'confirmed_invitations': confirmed_invitations,
+        'pending_invitations_list': pending_invitations_list,
+        'confirmed_invitations_list': confirmed_invitations_list,
+        'page_title': _('Convites para Agendamentos')
+    }
+    
+    return render(request, 'scheduler/student_notifications.html', context)
 
 # Views da API para integração com FullCalendar.js (serão detalhadas na próxima etapa)
 

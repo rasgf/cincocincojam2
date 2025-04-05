@@ -217,7 +217,6 @@ class EventLocationForm(forms.ModelForm):
         fields = ['name', 'address', 'is_online', 'meeting_link', 'is_active']
     
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
         # Configuração do Crispy Forms
@@ -272,10 +271,6 @@ class EventLocationForm(forms.ModelForm):
     
     def save(self, commit=True):
         location = super().save(commit=False)
-        
-        # Definir criado por se não estiver definido
-        if not location.created_by and self.user:
-            location.created_by = self.user
         
         if commit:
             location.save()

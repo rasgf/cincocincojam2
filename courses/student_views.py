@@ -10,6 +10,7 @@ from django.utils import timezone
 from .models import Course, Lesson, Enrollment, LessonProgress
 from .forms import CourseEnrollForm, CourseSearchForm
 from core.models import User
+from scheduler.models import EventParticipant
 
 
 class StudentRequiredMixin(UserPassesTestMixin):
@@ -109,6 +110,23 @@ class StudentDashboardView(LoginRequiredMixin, StudentRequiredMixin, ListView):
             print(f"Erro ao buscar transações pendentes: {e}")
             context['has_pending_payment'] = False
         
+        # Verificar convites pendentes para eventos (aulas)
+        try:
+            from scheduler.models import EventParticipant
+            
+            # Buscar convites pendentes
+            pending_invitations = EventParticipant.objects.filter(
+                student=self.request.user,
+                attendance_status='PENDING',
+                event__start_time__gte=timezone.now()
+            ).count()
+            
+            context['pending_invitations_count'] = pending_invitations
+        except (ImportError, Exception) as e:
+            # Se o módulo scheduler não estiver disponível ou ocorrer outro erro
+            print(f"Erro ao buscar convites pendentes: {e}")
+            context['pending_invitations_count'] = 0
+            
         return context
 
 

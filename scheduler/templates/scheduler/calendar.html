@@ -264,29 +264,28 @@
 <!-- Input hidden para garantir que o ID da localização esteja disponível globalmente -->
 <input type="hidden" id="current-location-id" value="{{ location.id }}">
 
-<!-- Debug Info - Para mostrar os dados do contexto -->
-<div class="card mb-3">
-    <div class="card-header bg-info text-white">
-        <h5 class="mb-0">Informações de Depuração</h5>
-    </div>
-    <div class="card-body">
-        <h6>Cursos do Professor:</h6>
-        {% if professor_courses %}
-            <ul>
-                {% for course in professor_courses %}
-                    <li>ID: {{ course.id }} - Título: {{ course.title }} - Alunos: {{ course.student_count }}</li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>Nenhum curso encontrado no contexto.</p>
-        {% endif %}
-        
-        <h6>ID da Localização atual: {{ location.id }}</h6>
-    </div>
-</div>
-<!-- Fim Debug Info -->
-
 <div class="container mt-4 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>{{ location.name }}</h2>
+            <p class="text-muted">
+                {% if location.is_online %}
+                    <span class="badge bg-success">Online</span>
+                {% else %}
+                    <span class="badge bg-secondary">Presencial</span>
+                {% endif %}
+                {% if location.address %}
+                    - {{ location.address }}
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'scheduler:location_list' %}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-arrow-left"></i> Voltar para Estúdios
+            </a>
+        </div>
+    </div>
+    
     <!-- Cabeçalho do calendário -->
     <div class="calendar-header">
         <div class="row align-items-center">
@@ -299,16 +298,16 @@
                             style="background-image: url('{% static 'img/studios/ipanema.jpg' %}');"
                         {% elif location.id == 3 %}
                             style="background-image: url('{% static 'img/studios/botafogo.jpg' %}');"
-                        {% else %}
+                                            {% else %}
                             style="background-image: url('{% static 'img/default-studio.jpg' %}');"
-                        {% endif %}
+                                            {% endif %}
                     ></div>
                     <div>
                         <h4 class="mb-0">{{ location.name }}</h4>
                         <div class="text-muted small">{{ location.address|truncatechars:60 }}</div>
-                    </div>
-                </div>
-            </div>
+                                        </div>
+                                </div>
+                        </div>
             <div class="col-md-6 text-md-end mt-3 mt-md-0">
                 <a href="{% url 'scheduler:location_list' %}" class="btn btn-outline-secondary btn-sm btn-agenda me-2">
                     <i class="fas fa-building me-1"></i> {% trans "Trocar Estúdio" %}
@@ -317,19 +316,19 @@
                     <i class="fas fa-plus me-1"></i> {% trans "Novo Agendamento" %}
                 </button>
             </div>
-        </div>
-    </div>
-    
+                </div>
+            </div>
+            
     <!-- Calendário -->
     <div class="calendar-container">
         <div id="calendar"></div>
-    </div>
+                </div>
     
     <!-- Mensagem de Sucesso -->
     <div class="success-feedback" id="success-message">
         <i class="fas fa-check-circle me-2"></i>
         <span id="success-message-text">Agendamento criado com sucesso!</span>
-    </div>
+                </div>
     
     <!-- Modal de Agendamento -->
     <div class="modal fade" id="booking-modal" tabindex="-1" aria-labelledby="booking-modal-label" aria-hidden="true">
@@ -338,7 +337,7 @@
                 <div class="modal-header">
                     <h5 class="modal-title" id="booking-modal-label">{% trans "Novo Agendamento" %}</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+            </div>
                 <div class="modal-body">
                     <form id="booking-form" method="post" action="{% url 'scheduler:event_create' %}">
                         {% csrf_token %}
@@ -348,6 +347,7 @@
                         <input type="hidden" name="start_time" id="booking-start-time">
                         <input type="hidden" name="end_time" id="booking-end-time">
                         <input type="hidden" name="selected_students" id="selected-students-input">
+                        <input type="hidden" name="from_modal" value="true">
                         
                         <div class="mb-3" id="time-slots-container">
                             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -641,6 +641,9 @@
         const customTimeToggle = document.getElementById('custom-time-toggle');
         const predefinedSlots = document.getElementById('predefined-slots');
         const customTimeSelector = document.getElementById('custom-time-selector');
+        const durationWarning = document.getElementById('duration-warning');
+        const overlapWarning = document.getElementById('overlap-warning');
+        const applyCustomTimeBtn = document.getElementById('apply-custom-time');
         
         customTimeToggle.addEventListener('change', function() {
             if (this.checked) {
@@ -703,7 +706,6 @@
         }
         
         // Função para aplicar o horário personalizado
-        const applyCustomTimeBtn = document.getElementById('apply-custom-time');
         applyCustomTimeBtn.addEventListener('click', function() {
             const startTime = customStartTime.value;
             const endTime = customEndTime.value;
@@ -756,6 +758,12 @@
         // Função para verificar se um horário personalizado está disponível
         async function checkTimeSlotAvailability(date, startTime, endTime, locationId) {
             try {
+                // Garantir que o locationId não esteja vazio
+                if (!locationId) {
+                    console.error('ID do estúdio não encontrado em checkTimeSlotAvailability');
+                    return false;
+                }
+                
                 // Usar a API atualizada para verificação de horário personalizado
                 const response = await fetch(`{% url 'scheduler:api_available_slots' %}?date=${date}&location=${locationId}&custom_check=true&start_time=${startTime}&end_time=${endTime}`);
                 const data = await response.json();
@@ -790,8 +798,40 @@
                 day: 'Dia'
             },
             events: function(info, successCallback, failureCallback) {
-                // FIXO: Usando ID 1 para teste imediato
-                const locationId = '1'; 
+                // Tentar obter o locationId de várias formas
+                let locationId = "";
+                
+                // 1. Tentar obter do elemento hidden
+                const locationEl = document.getElementById('current-location-id');
+                if (locationEl && locationEl.value) {
+                    locationId = locationEl.value;
+                }
+                
+                // 2. Se não encontrou, extrair da URL
+                if (!locationId) {
+                    const pathParts = window.location.pathname.split('/');
+                    // URL deve ser algo como /agenda/locations/1/calendar/
+                    const locationIdIndex = pathParts.indexOf('locations') + 1;
+                    if (locationIdIndex > 0 && locationIdIndex < pathParts.length) {
+                        locationId = pathParts[locationIdIndex];
+                    }
+                }
+                
+                // 3. Se ainda não encontrou, usar o valor do Django
+                if (!locationId) {
+                    locationId = "{{ location.id }}";
+                }
+                
+                console.log("LocationID encontrado:", locationId);
+                
+                // Verificar se o locationId está definido
+                if (!locationId) {
+                    console.error('locationId não encontrado');
+                    // Retornar lista vazia de eventos em vez de falhar
+                    successCallback([]);
+                    return;
+                }
+                
                 fetch(`{% url 'scheduler:api_events' %}?location=${locationId}&start=${info.startStr}&end=${info.endStr}`)
                     .then(response => {
                         if (!response.ok) {
@@ -870,7 +910,39 @@
         function openBookingModal(dateStr) {
             bookingDateInput.value = dateStr;
             
-            const locationId = document.querySelector('.navbar-brand').getAttribute('data-location-id') || '1';
+            // Tentar obter o locationId de várias formas
+            let locationId = "";
+            
+            // 1. Tentar obter do elemento hidden
+            const locationEl = document.getElementById('current-location-id');
+            if (locationEl && locationEl.value) {
+                locationId = locationEl.value;
+            }
+            
+            // 2. Se não encontrou, extrair da URL
+            if (!locationId) {
+                const pathParts = window.location.pathname.split('/');
+                // URL deve ser algo como /agenda/locations/1/calendar/
+                const locationIdIndex = pathParts.indexOf('locations') + 1;
+                if (locationIdIndex > 0 && locationIdIndex < pathParts.length) {
+                    locationId = pathParts[locationIdIndex];
+                }
+            }
+            
+            // 3. Se ainda não encontrou, usar o valor do Django
+            if (!locationId) {
+                locationId = "{{ location.id }}";
+            }
+            
+            console.log("LocationID para booking:", locationId);
+            
+            // Garantir que o locationId não esteja vazio
+            if (!locationId) {
+                console.error('ID do estúdio não encontrado');
+                alert('Erro: ID do estúdio não encontrado. Por favor, recarregue a página.');
+                return;
+            }
+            
             document.getElementById('booking-location').value = locationId;
             
             // Limpar qualquer backdrop residual e preparar o body
@@ -922,12 +994,38 @@
             const locationId = document.getElementById('booking-location').value;
             
             if (!locationId) {
+                console.error('ID do estúdio não encontrado em loadAvailableTimeSlots');
                 noSlotsMessage.style.display = 'block';
                 noSlotsMessage.textContent = 'Erro ao carregar horários: ID do estúdio não encontrado.';
                 timeSlotsContainer.style.display = 'block';
                 bookingDetails.style.display = 'none';
+                
+                // Tentar obter o locationId da URL como fallback
+                let locationIdFromUrl = "";
+                const pathParts = window.location.pathname.split('/');
+                const locationIdIndex = pathParts.indexOf('locations') + 1;
+                if (locationIdIndex > 0 && locationIdIndex < pathParts.length) {
+                    locationIdFromUrl = pathParts[locationIdIndex];
+                    
+                    if (locationIdFromUrl) {
+                        console.log("Usando locationId obtido da URL:", locationIdFromUrl);
+                        document.getElementById('booking-location').value = locationIdFromUrl;
+                        
+                        // Tentar novamente com o locationId da URL
+                        fetchAvailableSlots(date, locationIdFromUrl);
+                        return;
+                    }
+                }
+                
                 return;
             }
+            
+            fetchAvailableSlots(date, locationId);
+        }
+        
+        // Função para buscar os slots disponíveis da API
+        function fetchAvailableSlots(date, locationId) {
+            console.log('Buscando slots para a data:', date, 'no estúdio ID:', locationId);
             
             fetch(`{% url 'scheduler:api_available_slots' %}?date=${date}&location=${locationId}`)
                 .then(response => {
@@ -994,41 +1092,11 @@
                 });
         }
         
-        // Carregar cursos do professor para o filtro
-        function loadProfessorCoursesForFilter(selectElement) {
-            fetch('/courses/api/professor-courses/', {
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                credentials: 'same-origin'
-            })
-                .then(response => {
-                    return response.json();
-                })
-                .then(data => {
-                    // Manter a primeira opção e limpar o resto
-                    selectElement.innerHTML = '<option value="">Todos os Alunos</option>';
-                    
-                    if (data.courses && data.courses.length > 0) {
-                        data.courses.forEach(course => {
-                            const option = document.createElement('option');
-                            option.value = course.id;
-                            option.textContent = `${course.title} (${course.student_count} alunos)`;
-                            selectElement.appendChild(option);
-                        });
-                    } else {
-                        console.log("Nenhum curso encontrado para o filtro");
-                    }
-                })
-                .catch(error => {
-                    console.error('Erro ao carregar cursos (filtro):', error);
-                });
-        }
-        
         // Buscar cursos do professor para o agendamento
         function loadProfessorCoursesForBooking() {
-            fetch('/courses/api/professor-courses/', {
+            courseSelect.innerHTML = '<option value="">{% trans "Nenhum (aula particular/evento especial)" %}</option>';
+            
+            fetch('{% url "courses:api_professor_courses" %}', {
                 headers: {
                     'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
                     'X-Requested-With': 'XMLHttpRequest'
@@ -1036,18 +1104,20 @@
                 credentials: 'same-origin'
             })
                 .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                    }
                     return response.json();
                 })
                 .then(data => {
                     if (data.courses && data.courses.length > 0) {
-                        courseSelect.innerHTML = '<option value="">{% trans "Nenhum (aula particular/evento especial)" %}</option>';
-                        
                         data.courses.forEach(course => {
                             const option = document.createElement('option');
                             option.value = course.id;
                             option.textContent = course.title;
                             courseSelect.appendChild(option);
                         });
+                        console.log(`Carregados ${data.courses.length} cursos do professor`);
                     } else {
                         console.log("Nenhum curso encontrado para o professor");
                     }
@@ -1728,6 +1798,44 @@
         document.getElementById('add-course-filter').addEventListener('change', function() {
             loadAvailableStudents();
         });
+
+        // Carregar cursos do professor para o filtro
+        function loadProfessorCoursesForFilter(selectElement) {
+            selectElement.innerHTML = '<option value="">Todos os Alunos</option>';
+            
+            fetch('{% url "courses:api_professor_courses" %}', {
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Erro ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Manter a primeira opção e limpar o resto
+                    selectElement.innerHTML = '<option value="">Todos os Alunos</option>';
+                    
+                    if (data.courses && data.courses.length > 0) {
+                        data.courses.forEach(course => {
+                            const option = document.createElement('option');
+                            option.value = course.id;
+                            option.textContent = `${course.title} (${course.student_count} alunos)`;
+                            selectElement.appendChild(option);
+                        });
+                        console.log(`Carregados ${data.courses.length} cursos para o filtro`);
+                    } else {
+                        console.log("Nenhum curso encontrado para o filtro");
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar cursos (filtro):', error);
+                });
+        }
     });
 </script>
 {% endblock %}

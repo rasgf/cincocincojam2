@@ -8,6 +8,7 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.utils import timezone
 from datetime import timedelta
 from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required
 
 from .models import Course, Lesson, Enrollment
 from .forms import CourseForm, LessonForm, CoursePublishForm
@@ -368,3 +369,33 @@ class LessonDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, 'Aula excluída com sucesso!')
         return super().delete(request, *args, **kwargs)
+
+
+# API para buscar cursos do professor
+@login_required
+def api_professor_courses(request):
+    """API para buscar cursos do professor logado, para uso em dropdowns e seleções."""
+    try:
+        if not request.user.is_professor:
+            return JsonResponse({'error': 'Acesso negado. Somente professores podem acessar esta API.'}, status=403)
+        
+        # Buscar cursos do professor logado
+        courses = Course.objects.filter(professor=request.user).order_by('title')
+        
+        # Adicionar contagem de alunos para cada curso
+        courses_data = []
+        for course in courses:
+            student_count = Enrollment.objects.filter(
+                course=course, 
+                status=Enrollment.Status.ACTIVE
+            ).count()
+            
+            courses_data.append({
+                'id': course.id,
+                'title': course.title,
+                'student_count': student_count
+            })
+        
+        return JsonResponse({'courses': courses_data})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

@@ -40,4 +40,7 @@ urlpatterns = [
     
     # Alunos - Incluir submódulo de URLs
     path('student/', include((student_patterns, 'student'))),
+    
+    # APIs
+    path('api/professor-courses/', views.api_professor_courses, name='api_professor_courses'),
 ]
