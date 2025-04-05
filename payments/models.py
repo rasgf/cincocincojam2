@@ -98,3 +98,68 @@ class PaymentTransaction(models.Model):
         """Marca a transação como estornada."""
         self.status = self.Status.REFUNDED
         self.save()
+
+class SingleSale(models.Model):
+    """
+    Representa uma venda avulsa de produtos ou serviços não vinculados a matrículas em cursos.
+    """
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', _('Pendente')
+        PAID = 'PAID', _('Pago')
+        REFUNDED = 'REFUNDED', _('Estornado')
+        FAILED = 'FAILED', _('Falhou')
+    
+    # Campos básicos
+    description = models.CharField(_('Descrição'), max_length=255)
+    amount = models.DecimalField(_('Valor'), max_digits=10, decimal_places=2)
+    status = models.CharField(_('Status'), max_length=10, choices=Status.choices, default=Status.PENDING)
+    
+    # Vendedor e cliente
+    seller = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.PROTECT, 
+        related_name='sales',
+        verbose_name=_('Vendedor')
+    )
+    customer_name = models.CharField(_('Nome do Cliente'), max_length=255)
+    customer_email = models.EmailField(_('Email do Cliente'), max_length=255)
+    customer_cpf = models.CharField(_('CPF do Cliente'), max_length=14, blank=True, null=True)
+    
+    # Datas
+    created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
+    paid_at = models.DateTimeField(_('Pago em'), null=True, blank=True)
+    
+    # Campos para Pix (semelhante ao PaymentTransaction)
+    payment_method = models.CharField(_('Método de Pagamento'), max_length=20, default='pix')
+    correlation_id = models.CharField(_('ID de Correlação'), max_length=255, blank=True, null=True)
+    brcode = models.TextField(_('BR Code'), blank=True, null=True)
+    qrcode_image = models.TextField(_('QR Code (imagem)'), blank=True, null=True)
+    
+    # Metadados adicionais (para uso flexível)
+    metadata = models.JSONField(_('Metadados'), default=dict, blank=True)
+    
+    class Meta:
+        verbose_name = _('Venda Avulsa')
+        verbose_name_plural = _('Vendas Avulsas')
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.description} - R$ {self.amount} ({self.get_status_display()})"
+    
+    def mark_as_paid(self, save=True):
+        """Marca a venda como paga e registra a data/hora do pagamento."""
+        self.status = self.Status.PAID
+        self.paid_at = timezone.now()
+        if save:
+            self.save()
+    
+    def mark_as_refunded(self, save=True):
+        """Marca a venda como estornada."""
+        self.status = self.Status.REFUNDED
+        if save:
+            self.save()
+    
+    def is_paid(self):
+        """Verifica se a venda está paga."""
+        return self.status == self.Status.PAID

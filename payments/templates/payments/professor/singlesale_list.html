@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+{% load humanize %}
+
+{% block title %}{% translate "Vendas Avulsas" %}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>{% translate "Vendas Avulsas" %}</h1>
+        <a href="{% url 'payments:singlesale_create' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-1"></i> {% translate "Nova Venda" %}
+        </a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">{% translate "Filtros" %}</h5>
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">{% translate "Status" %}</label>
+                    <select name="status" class="form-select">
+                        <option value="">{% translate "Todos" %}</option>
+                        {% for status_code, status_name in status_choices %}
+                            <option value="{{ status_code }}" {% if selected_status == status_code %}selected{% endif %}>
+                                {{ status_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% translate "Data Inicial" %}</label>
+                    <input type="date" class="form-control" name="start_date" value="{{ start_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">{% translate "Data Final" %}</label>
+                    <input type="date" class="form-control" name="end_date" value="{{ end_date }}">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="fas fa-filter me-1"></i> {% translate "Filtrar" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resumo Financeiro -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">{% translate "Total de Vendas" %}</h5>
+                    <div class="display-6">R$ {{ total_amount|floatformat:2|intcomma }}</div>
+                    <div class="text-muted mt-2">
+                        <div>{% translate "Qtd. Vendas" %}: {{ sales|length }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-success">{% translate "Total Recebido" %}</h5>
+                    <div class="display-6 text-success">R$ {{ total_paid|floatformat:2|intcomma }}</div>
+                    <div class="text-muted mt-2">
+                        <div>{% translate "Pagamentos confirmados" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title text-warning">{% translate "Total Pendente" %}</h5>
+                    <div class="display-6 text-warning">R$ {{ total_pending|floatformat:2|intcomma }}</div>
+                    <div class="text-muted mt-2">
+                        <div>{% translate "Pagamentos a receber" %}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lista de Vendas -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">{% translate "Lista de Vendas" %}</h5>
+            
+            {% if sales %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>{% translate "ID" %}</th>
+                                <th>{% translate "Descrição" %}</th>
+                                <th>{% translate "Cliente" %}</th>
+                                <th>{% translate "Valor" %}</th>
+                                <th>{% translate "Status" %}</th>
+                                <th>{% translate "Data" %}</th>
+                                <th>{% translate "Ações" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sale in sales %}
+                                <tr>
+                                    <td>{{ sale.id }}</td>
+                                    <td>{{ sale.description }}</td>
+                                    <td>{{ sale.customer_name }}</td>
+                                    <td>R$ {{ sale.amount|floatformat:2 }}</td>
+                                    <td>
+                                        {% if sale.status == 'PAID' %}
+                                            <span class="badge bg-success">{{ sale.get_status_display }}</span>
+                                        {% elif sale.status == 'PENDING' %}
+                                            <span class="badge bg-warning text-dark">{{ sale.get_status_display }}</span>
+                                        {% elif sale.status == 'REFUNDED' %}
+                                            <span class="badge bg-info">{{ sale.get_status_display }}</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">{{ sale.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ sale.created_at|date:"d/m/Y H:i" }}</td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{% url 'payments:singlesale_detail' pk=sale.id %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if sale.status == 'PENDING' %}
+                                                <a href="{% url 'payments:create_singlesale_pix' sale_id=sale.id %}" class="btn btn-sm btn-outline-success" title="{% translate 'Gerar Pix' %}">
+                                                    <i class="fas fa-qrcode"></i>
+                                                </a>
+                                            {% endif %}
+                                            <a href="{% url 'payments:singlesale_update' pk=sale.id %}" class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Paginação -->
+                {% if is_paginated %}
+                <nav aria-label="Paginação">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Primeira">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Anterior">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                            {% if page_obj.number == num %}
+                                <li class="page-item active"><a class="page-link">{{ num }}</a></li>
+                            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Próxima">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Última">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+            {% else %}
+                <div class="alert alert-info">
+                    {% translate "Nenhuma venda avulsa encontrada." %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

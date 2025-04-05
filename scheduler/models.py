@@ -10,9 +10,18 @@ class EventLocation(models.Model):
     Pode ser um estúdio físico ou virtual (online).
     """
     name = models.CharField(_('Nome do estúdio'), max_length=200)
-    address = models.TextField(_('Endereço'), blank=True, null=True)
-    is_online = models.BooleanField(_('Online?'), default=False)
-    meeting_link = models.URLField(_('Link da reunião'), blank=True, null=True)
+    address = models.TextField(_('Endereço'), blank=True, null=True, 
+                               help_text=_('Endereço físico do estúdio (caso não seja online)'))
+    is_online = models.BooleanField(_('Online?'), default=False,
+                                   help_text=_('Marque esta opção se for um estúdio virtual/online'))
+    meeting_link = models.URLField(_('Link da reunião'), blank=True, null=True,
+                                  help_text=_('Link da sala virtual (Zoom, Meet, etc.)'))
+    phone = models.CharField(_('Telefone'), max_length=20, blank=True, null=True,
+                            help_text=_('Telefone de contato da unidade'))
+    email = models.EmailField(_('Email'), blank=True, null=True,
+                             help_text=_('Email de contato da unidade'))
+    image = models.ImageField(_('Foto'), upload_to='studios/', blank=True, null=True,
+                             help_text=_('Imagem da unidade'))
     created_by = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 
@@ -22,7 +31,8 @@ class EventLocation(models.Model):
     )
     created_at = models.DateTimeField(_('Criado em'), auto_now_add=True)
     updated_at = models.DateTimeField(_('Atualizado em'), auto_now=True)
-    is_active = models.BooleanField(_('Ativo?'), default=True)
+    is_active = models.BooleanField(_('Ativo?'), default=True,
+                                   help_text=_('Desmarque para ocultar este estúdio sem excluí-lo'))
     
     class Meta:
         verbose_name = _('Estúdio')
