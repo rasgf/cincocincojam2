@@ -71,6 +71,37 @@
   --body-color: #e0e0e0;
   --card-bg: #1e1e1e;
   --card-border: rgba(255, 255, 255, 0.125);
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --secondary: #9ca3af;
+  --success: #22c55e;
+  --info: #3b82f6;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --light: #1e1e1e;
+  --dark: #e0e0e0;
+  --muted: #9ca3af;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --header-bg: #1e1e1e;
+  --header-color: #e0e0e0;
+  --footer-bg: #1e1e1e;
+  --footer-color: #e0e0e0;
+  --input-bg: #2d2d2d;
+  --input-color: #e0e0e0;
+  --input-border: #3d3d3d;
+  --input-focus-border: #4d4d4d;
+  --link-color: #3b82f6;
+  --link-hover-color: #60a5fa;
+  --navbar-dark-bg: #121212;
+  --navbar-light-bg: #1e1e1e;
+  --table-bg: #1e1e1e;
+  --table-stripe-bg: rgba(255, 255, 255, 0.05);
+  --table-hover-bg: rgba(255, 255, 255, 0.075);
+  --border-color: #3d3d3d;
+  --modal-bg: #1e1e1e;
+  --sidebar-bg: #1e1e1e;
+  --toast-bg: #1e1e1e;
+  --hr-color: rgba(255, 255, 255, 0.1);
   /* Demais variáveis do tema escuro... */
 }
 
@@ -198,10 +229,12 @@ body {
 .card {
   background-color: var(--card-bg);
   border-color: var(--card-border);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 .card-header, .card-footer {
   background-color: rgba(0, 0, 0, 0.03);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -218,14 +251,42 @@ body {
   color: var(--body-color) !important;
 }
 
-[data-bs-theme="dark"] th {
+/* Melhora a adaptação de tabelas ao tema escuro */
+[data-bs-theme="dark"] th,
+[data-bs-theme="dark"] td {
   background-color: var(--card-bg) !important;
   color: var(--body-color) !important;
 }
 
-[data-bs-theme="dark"] .table-light {
-  background-color: var(--card-bg) !important;
+[data-bs-theme="dark"] .table-light,
+[data-bs-theme="dark"] thead.table-light,
+[data-bs-theme="dark"] .table-light > th,
+[data-bs-theme="dark"] .table-light > td {
+  background-color: #2d2d2d !important;
   color: var(--body-color) !important;
+}
+
+/* Melhora adaptação de cabeçalhos coloridos */
+[data-bs-theme="dark"] .card-header.bg-primary,
+[data-bs-theme="dark"] .card-header.bg-success,
+[data-bs-theme="dark"] .card-header.bg-info,
+[data-bs-theme="dark"] .card-header.bg-warning,
+[data-bs-theme="dark"] .card-header.bg-danger {
+  color: #fff !important; /* Mantém o texto branco para contraste */
+  filter: brightness(0.85); /* Reduz um pouco o brilho para melhorar o conforto visual */
+}
+
+/* Melhora adaptação de modais ao tema escuro */
+[data-bs-theme="dark"] .modal-content {
+  background-color: var(--card-bg);
+  color: var(--body-color);
+  border-color: var(--card-border);
+}
+
+[data-bs-theme="dark"] .modal-header,
+[data-bs-theme="dark"] .modal-footer {
+  background-color: #2b2b2b;
+  border-color: var(--card-border);
 }
 
 /* Navbar */
@@ -263,6 +324,7 @@ body {
   background-color: var(--input-bg);
   border-color: var(--input-border);
   color: var(--input-color);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 /* Garante que os inputs tenham fundo branco no tema claro */
@@ -281,6 +343,7 @@ body {
 /* Tabelas */
 .table {
   color: var(--body-color);
+  transition: color 0.3s ease;
 }
 
 .table-striped tbody tr:nth-of-type(odd) {
@@ -329,6 +392,7 @@ a:hover {
 .modal-content {
   background-color: var(--modal-bg);
   border-color: var(--card-border);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Badges */
@@ -346,6 +410,7 @@ a:hover {
   background-color: var(--card-bg);
   border-color: var(--card-border);
   color: var(--body-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Ajustes para elementos específicos do CincoCincoJAM 2.0 */
@@ -362,6 +427,67 @@ a:hover {
 .course-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 0.5rem 1rem var(--shadow);
+}
+
+/* Melhorias específicas para tema escuro */
+[data-bs-theme="dark"] {
+  /* Ajusta as sombras para melhor visibilidade no modo escuro */
+  .shadow {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5) !important;
+  }
+  
+  /* Ajusta a cor de texto nos botões */
+  .btn-outline-dark {
+    color: var(--light);
+    border-color: var(--light);
+  }
+  
+  .btn-outline-dark:hover {
+    color: var(--dark);
+    background-color: var(--light);
+    border-color: var(--light);
+  }
+  
+  .btn-outline-light {
+    color: var(--dark);
+    border-color: var(--dark);
+  }
+  
+  .btn-outline-light:hover {
+    color: var(--light);
+    background-color: var(--dark);
+    border-color: var(--dark);
+  }
+  
+  /* Ajusta o contraste de alertas */
+  .alert {
+    border: 1px solid var(--border-color);
+  }
+  
+  /* Melhora a legibilidade dos botões close */
+  .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+  }
+  
+  /* Garante que badges mantenham bom contraste */
+  .badge.bg-warning {
+    color: #212529 !important;
+  }
+  
+  .badge.bg-light {
+    background-color: #e0e0e0 !important;
+    color: #212529 !important;
+  }
+  
+  /* Ajusta borda de cards para melhor visibilidade */
+  .card {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Melhora o contraste de elementos que usam texto preto */
+  .text-dark {
+    color: #e0e0e0 !important;
+  }
 }
 
 /* Personalização adicional para modo escuro */

@@ -187,3 +187,168 @@ main {
 #theme-toggle-btn:hover #theme-icon-moon {
     transform: rotate(-45deg);
 }
+
+/* Sistema de estilos personalizado do CincoCincoJAM 2.0 */
+
+/* Transições suaves para mudanças de tema */
+*, *::before, *::after {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Remove transição de elementos específicos que podem causar problemas visuais */
+.dropdown-menu, .tooltip, .popover {
+    transition: none !important;
+}
+
+/* Personalização da Barra de Navegação */
+.navbar-brand img {
+    height: 40px;
+}
+
+.navbar-brand .logo-light {
+    display: none;
+}
+
+.navbar-brand .logo-dark {
+    display: inline-block;
+}
+
+[data-bs-theme="dark"] .navbar-brand .logo-light {
+    display: inline-block;
+}
+
+[data-bs-theme="dark"] .navbar-brand .logo-dark {
+    display: none;
+}
+
+/* Melhorias para Cards */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    background-color: rgba(0, 0, 0, 0.03);
+}
+
+[data-bs-theme="dark"] .card-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.125);
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.card-header:first-child {
+    border-radius: calc(0.5rem - 1px) calc(0.5rem - 1px) 0 0;
+}
+
+/* Personalização de botões */
+.btn {
+    border-radius: 0.375rem;
+}
+
+.btn-sm {
+    border-radius: 0.25rem;
+}
+
+/* Melhoria visual para tabelas */
+.table {
+    margin-bottom: 0;
+}
+
+.table th, .table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+}
+
+/* Personalização para botão de tema */
+#theme-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--body-color);
+    transition: all 0.3s ease;
+}
+
+#theme-toggle-btn:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    transform: rotate(15deg);
+}
+
+[data-bs-theme="dark"] #theme-toggle-btn {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-bs-theme="dark"] #theme-toggle-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Estilização para área de aulas */
+.lesson-sidebar {
+    position: sticky;
+    top: 2rem;
+    height: calc(100vh - 4rem);
+    overflow-y: auto;
+}
+
+.lesson-content {
+    min-height: 70vh;
+}
+
+/* Personalização para badges */
+.badge {
+    font-weight: 500;
+    padding: 0.35em 0.65em;
+}
+
+/* Estilização para cards de curso */
+.course-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    height: 100%;
+}
+
+.course-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+[data-bs-theme="dark"] .course-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5);
+}
+
+/* Estilização para modais */
+.modal-content {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-footer {
+    border-top: 1px solid var(--border-color);
+}
+
+/* Melhorias para formulários */
+.form-control, .form-select {
+    border-radius: 0.375rem;
+}
+
+.form-control:focus, .form-select:focus {
+    box-shadow: 0 0 0 0.25rem rgba(var(--primary-rgb), 0.25);
+}
+
+/* Personalização para dropdowns */
+.dropdown-menu {
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+[data-bs-theme="dark"] .dropdown-menu {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5);
+}
