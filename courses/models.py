@@ -177,6 +177,7 @@ class Enrollment(models.Model):
         ACTIVE = 'ACTIVE', _('Ativa')
         COMPLETED = 'COMPLETED', _('Concluída')
         CANCELLED = 'CANCELLED', _('Cancelada')
+        PENDING = 'PENDING', _('Pendente')
     
     # Relacionamentos
     student = models.ForeignKey(
@@ -197,7 +198,7 @@ class Enrollment(models.Model):
         _('status'),
         max_length=10,
         choices=Status.choices,
-        default=Status.ACTIVE
+        default=Status.PENDING
     )
     progress = models.IntegerField(_('progresso'), default=0, help_text=_('Progresso em porcentagem (0-100)'))
     enrolled_at = models.DateTimeField(_('matriculado em'), auto_now_add=True)
@@ -220,8 +221,8 @@ class Enrollment(models.Model):
         # Salvar a matrícula
         super().save(*args, **kwargs)
         
-        # Se for uma nova matrícula, criar automaticamente uma transação de pagamento
-        if is_new:
+        # Se for uma nova matrícula com preço > 0 e status não for PENDING, criar automaticamente uma transação de pagamento
+        if is_new and self.course.price > 0 and self.status != self.Status.PENDING:
             from payments.models import PaymentTransaction
             
             # Criar uma transação pendente com o valor do curso

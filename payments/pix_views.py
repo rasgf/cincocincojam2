@@ -43,8 +43,13 @@ def create_pix_payment(request, course_id):
     enrollment, created = Enrollment.objects.get_or_create(
         student=request.user,
         course=course,
-        defaults={'status': 'PENDING'}
+        defaults={'status': Enrollment.Status.PENDING}
     )
+    
+    # Se a matrícula já existia e não está com status PENDING, atualizar para PENDING
+    if not created and enrollment.status != Enrollment.Status.PENDING:
+        enrollment.status = Enrollment.Status.PENDING
+        enrollment.save()
     
     # Criar cobrança na OpenPix
     openpix = OpenPixService()
@@ -83,6 +88,11 @@ def pix_payment_detail(request, payment_id):
         payment_method='PIX'
     )
     
+    # Se o pagamento já estiver confirmado, redireciona para a página de aprendizado do curso
+    if payment.status == PaymentTransaction.Status.PAID:
+        messages.success(request, _('Seu pagamento já foi confirmado. Você está matriculado no curso.'))
+        return redirect('courses:student:course_learn', pk=payment.enrollment.course.id)
+    
     # Atualizar status do pagamento se ainda estiver pendente
     if payment.status == PaymentTransaction.Status.PENDING:
         try:
@@ -96,7 +106,7 @@ def pix_payment_detail(request, payment_id):
                 
                 # Atualizar status da matrícula
                 enrollment = payment.enrollment
-                enrollment.status = 'ACTIVE'
+                enrollment.status = Enrollment.Status.ACTIVE
                 enrollment.save()
                 
                 messages.success(request, _('Pagamento confirmado! Você foi matriculado no curso.'))
@@ -117,6 +127,104 @@ def pix_webhook(request):
     Webhook para receber notificações de pagamento da OpenPix.
     """
     # A implementação completa do webhook será feita posteriormente
+    import json
+    import logging
+    import hmac
+    import hashlib
+    from django.conf import settings
+    from .models import PaymentTransaction
+    from courses.models import Enrollment
+    
+    logger = logging.getLogger('payments')
+    
+    # Log da requisição recebida
+    logger.info("Webhook OpenPix recebido")
+    
+    try:
+        # Verificar assinatura do webhook (quando estiver em produção)
+        if not settings.DEBUG and settings.OPENPIX_WEBHOOK_SECRET:
+            signature = request.headers.get('x-webhook-signature', '')
+            
+            # Calcular assinatura esperada
+            payload = request.body
+            expected_signature = hmac.new(
+                settings.OPENPIX_WEBHOOK_SECRET.encode('utf-8'),
+                payload,
+                hashlib.sha256
+            ).hexdigest()
+            
+            if not hmac.compare_digest(signature, expected_signature):
+                logger.error(f"Assinatura de webhook inválida. Recebida: {signature}, Esperada: {expected_signature}")
+                return HttpResponse(status=401)
+        
+        # Obter dados do webhook
+        payload = json.loads(request.body.decode('utf-8'))
+        logger.info(f"Payload do webhook: {json.dumps(payload)[:200]}...") # Log truncado para não ser muito grande
+        
+        # Verificar o tipo de evento
+        event = payload.get('event')
+        if event != 'CHARGE_COMPLETED':
+            logger.info(f"Evento ignorado: {event}")
+            return HttpResponse(status=200)  # Aceitar o webhook, mas ignorar eventos que não sejam de pagamento concluído
+        
+        # Obter dados da cobrança
+        charge = payload.get('charge', {})
+        correlation_id = charge.get('correlationID')
+        status = charge.get('status')
+        
+        if not correlation_id or status != 'COMPLETED':
+            logger.info(f"Ignorando webhook - correlation_id ausente ou status diferente de COMPLETED: {status}")
+            return HttpResponse(status=200)
+        
+        logger.info(f"Processando pagamento para correlation_id: {correlation_id}")
+        
+        # Buscar a transação correspondente
+        try:
+            # Primeiro, verificar pagamento de curso
+            transaction = PaymentTransaction.objects.get(correlation_id=correlation_id)
+            
+            # Se já estiver pago, apenas retorna sucesso
+            if transaction.status == PaymentTransaction.Status.PAID:
+                logger.info(f"Transação {transaction.id} já estava marcada como paga.")
+                return HttpResponse(status=200)
+            
+            # Marcar como pago
+            transaction.status = PaymentTransaction.Status.PAID
+            transaction.payment_date = timezone.now()
+            transaction.save()
+            
+            # Atualizar status da matrícula
+            enrollment = transaction.enrollment
+            enrollment.status = Enrollment.Status.ACTIVE
+            enrollment.save()
+            
+            logger.info(f"Pagamento confirmado para matrícula {enrollment.id} via webhook.")
+            return HttpResponse(status=200)
+            
+        except PaymentTransaction.DoesNotExist:
+            # Verificar se é uma venda avulsa
+            from .models import SingleSale
+            try:
+                sale = SingleSale.objects.get(correlation_id=correlation_id)
+                
+                # Se já estiver pago, apenas retorna sucesso
+                if sale.status == SingleSale.Status.PAID:
+                    logger.info(f"Venda avulsa {sale.id} já estava marcada como paga.")
+                    return HttpResponse(status=200)
+                
+                # Marcar como pago
+                sale.mark_as_paid()
+                logger.info(f"Pagamento confirmado para venda avulsa {sale.id} via webhook.")
+                return HttpResponse(status=200)
+                
+            except SingleSale.DoesNotExist:
+                logger.error(f"Nenhuma transação encontrada para correlation_id: {correlation_id}")
+                return HttpResponse(status=404)
+    
+    except Exception as e:
+        logger.exception(f"Erro ao processar webhook: {str(e)}")
+        return HttpResponse(status=500)
+    
     return HttpResponse(status=200)
 
 def check_payment_status(request, payment_id):
@@ -142,12 +250,12 @@ def check_payment_status(request, payment_id):
                 
                 # Atualizar status da matrícula
                 enrollment = payment.enrollment
-                enrollment.status = 'ACTIVE'
+                enrollment.status = Enrollment.Status.ACTIVE
                 enrollment.save()
                 
                 return JsonResponse({
                     'status': 'PAID',
-                    'redirect_url': reverse('courses:my_courses')
+                    'redirect_url': reverse('courses:student:course_learn', kwargs={'pk': enrollment.course.id})
                 })
         except Exception as e:
             return JsonResponse({'status': 'ERROR', 'message': str(e)}, status=500)
@@ -193,17 +301,20 @@ def simulate_pix_payment(request, payment_id):
         result = openpix.simulate_payment(payment.correlation_id, use_local_simulation=True)
         
         if result.get('success'):
-            messages.success(request, _('Pagamento simulado com sucesso! Aguarde a confirmação via webhook ou clique em "Verificar pagamento".'))
+            messages.success(request, _('Pagamento simulado com sucesso! Você foi matriculado no curso.'))
             
             # Atualizar status do pagamento para facilitar testes (opcional)
             payment.status = PaymentTransaction.Status.PAID
-            payment.paid_at = timezone.now()
+            payment.payment_date = timezone.now()
             payment.save()
             
             # Também atualizar o status da matrícula
             enrollment = payment.enrollment
             enrollment.status = Enrollment.Status.ACTIVE
             enrollment.save()
+            
+            # Redirecionar para a página de aprendizado do curso em vez da página de pagamento
+            return redirect('courses:student:course_learn', pk=enrollment.course.id)
         else:
             error_detail = result.get('error', 'Erro desconhecido')
             messages.error(request, _(f'Erro ao simular pagamento: {error_detail}'))

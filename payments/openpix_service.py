@@ -1,5 +1,6 @@
 import requests
 import json
+import logging
 from django.conf import settings
 from django.utils import timezone
 from datetime import datetime, timedelta
@@ -17,6 +18,8 @@ class OpenPixService:
             "Authorization": settings.OPENPIX_TOKEN,
             "Content-Type": "application/json"
         }
+        self.logger = logging.getLogger('payments')
+        self.logger.info(f"OpenPixService inicializado: {self.BASE_URL}")
     
     def create_charge(self, enrollment, correlation_id=None, use_local_simulation=False):
         """
@@ -57,6 +60,8 @@ class OpenPixService:
             ]
         }
 
+        self.logger.info(f"Criando cobrança para aluno {student.email} - curso {course.id} ({course.title})")
+        
         # Chamar método genérico para criar a cobrança
         return self.create_charge_dict(charge_data, correlation_id, use_local_simulation)
     
@@ -78,7 +83,7 @@ class OpenPixService:
         
         # Se solicitado, usar simulação local em vez de chamar a API
         if use_local_simulation or settings.DEBUG:
-            print(f"Usando simulação LOCAL para criar cobrança: {charge_data['correlationID']}")
+            self.logger.info(f"Usando simulação LOCAL para criar cobrança: {charge_data['correlationID']}")
             # Gerar um QR code fictício para testes
             return {
                 "correlationID": charge_data["correlationID"],
@@ -91,8 +96,9 @@ class OpenPixService:
             }
         
         try:
-            print(f"Tentando criar cobrança para: {charge_data['correlationID']}")
-            print(f"URL: {self.BASE_URL}/charge")
+            self.logger.info(f"Tentando criar cobrança para: {charge_data['correlationID']}")
+            self.logger.debug(f"URL: {self.BASE_URL}/charge")
+            self.logger.debug(f"Payload: {json.dumps(charge_data)}")
             
             # Em ambiente de desenvolvimento, desativar verificação SSL
             verify_ssl = not settings.DEBUG
@@ -104,48 +110,60 @@ class OpenPixService:
                 verify=verify_ssl
             )
             
-            print(f"Status code: {response.status_code}")
-            print(f"Resposta: {response.text[:200]}...") # Mostrar apenas os primeiros 200 caracteres
+            self.logger.info(f"Status code: {response.status_code}")
+            self.logger.debug(f"Resposta: {response.text[:500]}...") # Mostrar apenas os primeiros 500 caracteres
             
             if response.status_code in [200, 201, 202]:
-                return response.json()
+                response_data = response.json()
+                self.logger.info(f"Cobrança criada com sucesso: {response_data.get('correlationID')}")
+                return response_data
             else:
-                print(f"Erro na API, usando simulação local como fallback")
+                self.logger.error(f"Erro na API OpenPix: {response.status_code} - {response.text}")
+                self.logger.info(f"Usando simulação local como fallback")
                 return self.create_charge_dict(charge_data, use_local_simulation=True)
         
         except Exception as e:
-            print(f"Erro ao criar cobrança via API: {str(e)}")
-            print("Usando simulação local como fallback...")
+            self.logger.exception(f"Erro ao criar cobrança via API: {str(e)}")
+            self.logger.info("Usando simulação local como fallback...")
             return self.create_charge_dict(charge_data, use_local_simulation=True)
     
-    def get_charge_status(self, correlation_id, use_local_simulation=False):
+    def get_charge_status(self, correlation_id, use_local_simulation=False, force_completed=False):
         """
         Verifica o status de uma cobrança pelo ID de correlação
         
         Args:
             correlation_id: ID de correlação da cobrança
             use_local_simulation: Se True, retorna dados simulados localmente
+            force_completed: Se True, força o status como COMPLETED (para simulação de pagamento)
             
         Returns:
             dict: Dados atualizados da cobrança
         """
         # Se solicitado ou se estiver em ambiente DEBUG, usar simulação local
         if use_local_simulation or settings.DEBUG:
-            print(f"Usando simulação LOCAL para verificar status: {correlation_id}")
+            self.logger.info(f"Usando simulação LOCAL para verificar status: {correlation_id}")
+            # Verifica se o pagamento foi marcado como processado manualmente em um dicionário de status
+            simulated_status = "ACTIVE"
+            if force_completed:
+                simulated_status = "COMPLETED"
+            
+            # Log do status simulado
+            self.logger.info(f"Status simulado para {correlation_id}: {simulated_status}")
+            
             return {
-                "status": "COMPLETED",  # Simulando pagamento já concluído
+                "status": simulated_status,
                 "correlationID": correlation_id,
                 "value": 10000,  # 100 reais em centavos
                 "payer": {
                     "name": "Simulador Local",
                     "taxID": "000.000.000-00"
                 },
-                "paidAt": "2025-03-31T10:45:00.000Z"
+                "paidAt": "2025-03-31T10:45:00.000Z" if simulated_status == "COMPLETED" else None
             }
         
         try:
-            print(f"Verificando status para: {correlation_id}")
-            print(f"URL: {self.BASE_URL}/charge/{correlation_id}")
+            self.logger.info(f"Verificando status para: {correlation_id}")
+            self.logger.debug(f"URL: {self.BASE_URL}/charge/{correlation_id}")
             
             # Em ambiente de desenvolvimento, desativar verificação SSL
             verify_ssl = not settings.DEBUG
@@ -156,32 +174,36 @@ class OpenPixService:
                 verify=verify_ssl
             )
             
-            print(f"Status code: {response.status_code}")
-            print(f"Resposta: {response.text[:200]}...") # Mostrar apenas os primeiros 200 caracteres
+            self.logger.info(f"Status code: {response.status_code}")
+            self.logger.debug(f"Resposta: {response.text[:500]}...") # Mostrar apenas os primeiros 500 caracteres
             
             if response.status_code in [200, 201, 202]:
-                return response.json()
+                response_data = response.json()
+                self.logger.info(f"Status obtido: {response_data.get('status')} para {correlation_id}")
+                return response_data
             else:
-                print(f"Erro na API, usando simulação local como fallback")
-                return self.get_charge_status(correlation_id, use_local_simulation=True)
+                self.logger.error(f"Erro na API OpenPix: {response.status_code} - {response.text}")
+                self.logger.info(f"Usando simulação local como fallback")
+                return self.get_charge_status(correlation_id, use_local_simulation=True, force_completed=False)
                 
         except Exception as e:
-            print(f"Erro ao verificar status via API: {str(e)}")
-            print("Usando simulação local como fallback...")
-            return self.get_charge_status(correlation_id, use_local_simulation=True)
+            self.logger.exception(f"Erro ao verificar status via API: {str(e)}")
+            self.logger.info("Usando simulação local como fallback...")
+            return self.get_charge_status(correlation_id, use_local_simulation=True, force_completed=False)
     
-    def get_charge(self, correlation_id, use_local_simulation=False):
+    def get_charge(self, correlation_id, use_local_simulation=False, force_completed=False):
         """
         Alias para get_charge_status para compatibilidade com a função chamadora
         
         Args:
             correlation_id: ID de correlação da cobrança
             use_local_simulation: Se True, retorna dados simulados localmente
+            force_completed: Se True, força o status como COMPLETED
             
         Returns:
             dict: Dados atualizados da cobrança
         """
-        return self.get_charge_status(correlation_id, use_local_simulation)
+        return self.get_charge_status(correlation_id, use_local_simulation, force_completed)
 
     def simulate_payment(self, correlation_id, use_local_simulation=False):
         """
@@ -194,9 +216,13 @@ class OpenPixService:
         Returns:
             dict: Resposta com resultado da simulação
         """
+        # Atualiza o status da cobrança para COMPLETED (simulação de pagamento)
+        status_data = self.get_charge_status(correlation_id, use_local_simulation=use_local_simulation, force_completed=True)
+        self.logger.info(f"Pagamento simulado solicitado para {correlation_id}")
+        
         # Se solicitado, usar simulação local em vez de chamar a API
         if use_local_simulation:
-            print(f"Usando simulação LOCAL para correlation_id: {correlation_id}")
+            self.logger.info(f"Usando simulação LOCAL para pagamento: {correlation_id}")
             return {
                 "success": True, 
                 "data": {
@@ -216,8 +242,8 @@ class OpenPixService:
             # De acordo com a documentação: https://developers.openpix.com.br/api#tag/transactions
             url = f"{self.BASE_URL}/testing/charge/{correlation_id}/pay"
             
-            print(f"Simulando pagamento para correlation_id: {correlation_id}")
-            print(f"URL: {url}")
+            self.logger.info(f"Simulando pagamento para correlation_id: {correlation_id}")
+            self.logger.debug(f"URL: {url}")
             
             # Em ambiente de desenvolvimento, podemos desativar a verificação SSL
             # ATENÇÃO: Não faça isso em produção!
@@ -230,17 +256,20 @@ class OpenPixService:
                 verify=verify_ssl  # Desabilita verificação SSL em ambiente de desenvolvimento
             )
             
-            print(f"Status code: {response.status_code}")
-            print(f"Resposta: {response.text}")
+            self.logger.info(f"Status code: {response.status_code}")
+            self.logger.debug(f"Resposta: {response.text}")
             
             if response.status_code in [200, 201, 202]:
-                return {"success": True, "data": response.json() if response.text else {}}
+                response_data = response.json() if response.text else {}
+                self.logger.info(f"Pagamento simulado com sucesso para {correlation_id}")
+                return {"success": True, "data": response_data}
             else:
+                self.logger.error(f"Erro ao simular pagamento: {response.status_code} - {response.text}")
                 return {"success": False, "error": response.text}
                 
         except Exception as e:
-            print(f"Erro ao simular pagamento via API: {str(e)}")
-            print("Tentando usar simulação local como fallback...")
+            self.logger.exception(f"Erro ao simular pagamento via API: {str(e)}")
+            self.logger.info("Tentando usar simulação local como fallback...")
             
             # Se falhar a chamada à API, tenta simular localmente como fallback
             return self.simulate_payment(correlation_id, use_local_simulation=True)

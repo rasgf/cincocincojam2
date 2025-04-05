@@ -8,28 +8,59 @@
 <style>
     .pix-container {
         padding: 20px;
-        background-color: #f8f9fa;
+        background-color: rgba(50, 55, 65, 0.8);
         border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
     
     .pix-title {
         font-size: 24px;
         font-weight: 600;
         margin-bottom: 20px;
-        color: #3c4858;
+        color: #f0f0f0;
+        text-align: center;
     }
     
     .qrcode-container {
         text-align: center;
-        padding: 15px;
+        padding: 20px;
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .qrcode-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, #3498db, #2ecc71);
+    }
+    
+    .qrcode-container img {
+        max-width: 220px !important;
+        margin: 0 auto;
+        border: 1px solid #eaeaea;
+        padding: 10px;
         background-color: white;
         border-radius: 8px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-        margin-bottom: 20px;
     }
     
     .brcode-input {
-        background-color: white;
+        background-color: rgba(240, 240, 240, 0.9);
+        border: 1px solid #555;
+        color: #333;
+        font-family: monospace;
+        font-size: 0.9rem;
+    }
+    
+    .form-text {
+        color: #adb5bd;
     }
     
     .payment-info {
@@ -41,7 +72,7 @@
         justify-content: space-between;
         margin-bottom: 10px;
         padding-bottom: 10px;
-        border-bottom: 1px solid #e9ecef;
+        border-bottom: 1px solid rgba(233, 236, 239, 0.2);
     }
     
     .payment-info-item:last-child {
@@ -52,18 +83,41 @@
         padding: 15px;
         margin-top: 20px;
         border-radius: 8px;
-        background-color: #fff9e6;
+        background-color: rgba(255, 249, 230, 0.1);
         border-left: 4px solid #ffc107;
     }
     
     .payment-status.completed {
-        background-color: #e6fff2;
+        background-color: rgba(230, 255, 242, 0.1);
         border-left: 4px solid #28a745;
     }
     
     .payment-status.expired {
-        background-color: #ffebee;
+        background-color: rgba(255, 235, 238, 0.1);
         border-left: 4px solid #dc3545;
+    }
+    
+    .copy-btn {
+        background-color: #3498db;
+        color: white;
+        border: none;
+        transition: all 0.3s ease;
+    }
+    
+    .copy-btn:hover {
+        background-color: #2980b9;
+        color: white;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+        .qrcode-container {
+            background-color: #f8f8f8;
+        }
+        
+        .brcode-input {
+            background-color: #e8e8e8;
+            color: #222;
+        }
     }
 </style>
 {% endblock %}
@@ -72,7 +126,7 @@
 <div class="container mt-4 mb-5">
     <div class="row">
         <div class="col-lg-8 mx-auto">
-            <div class="card">
+            <div class="card border-0 shadow">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0">{% trans "Pagamento via Pix" %}</h5>
                 </div>
@@ -99,13 +153,13 @@
                         <!-- QR Code e códigos -->
                         <div class="col-md-6">
                             <div class="pix-container">
-                                <h6 class="pix-title text-center">{% trans "Pague com Pix" %}</h6>
+                                <h6 class="pix-title">{% trans "Pague com Pix" %}</h6>
                                 
                                 {% if payment.status == 'PENDING' %}
                                     <div class="qrcode-container mb-4">
                                         {% if payment.qrcode_image %}
-                                            <img src="{{ payment.qrcode_image }}" alt="QR Code Pix" class="img-fluid mb-2" style="max-width: 200px;">
-                                            <p class="small text-muted mb-0">
+                                            <img src="{{ payment.qrcode_image }}" alt="QR Code Pix" class="img-fluid mb-2">
+                                            <p class="small text-dark fw-bold mt-2 mb-0">
                                                 {% trans "Escaneie o código com o aplicativo do seu banco" %}
                                             </p>
                                         {% else %}
@@ -117,14 +171,14 @@
                                     
                                     {% if payment.brcode %}
                                         <div class="mb-4">
-                                            <label class="form-label fw-bold">{% trans "Ou copie o código Pix" %}</label>
+                                            <label class="form-label fw-bold text-light">{% trans "Ou copie o código Pix" %}</label>
                                             <div class="input-group">
                                                 <input type="text" class="form-control brcode-input" id="brcode" value="{{ payment.brcode }}" readonly>
-                                                <button class="btn btn-outline-primary" type="button" onclick="copyPixCode()">
+                                                <button class="btn copy-btn" type="button" onclick="copyPixCode()">
                                                     <i class="fas fa-copy"></i>
                                                 </button>
                                             </div>
-                                            <div class="form-text">{% trans "Cole este código no app do seu banco" %}</div>
+                                            <div class="form-text mt-2">{% trans "Cole este código no app do seu banco" %}</div>
                                         </div>
                                     {% endif %}
                                 {% else %}
@@ -245,62 +299,97 @@
         const pixCodeInput = document.getElementById('brcode');
         pixCodeInput.select();
         document.execCommand('copy');
-        alert("{% trans 'Código Pix copiado!' %}");
-    }
-    
-    // Função para verificar o status do pagamento com feedback visual
-    function checkPaymentStatus(button, url, normalText, loadingText) {
-        // Desabilita o botão durante a verificação
-        button.disabled = true;
-        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ' + loadingText;
         
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'PAID') {
-                    // Se pago, redireciona
-                    window.location.href = data.redirect_url;
-                } else {
-                    // Se ainda não pago, habilita o botão novamente
-                    button.disabled = false;
-                    button.innerHTML = '<i class="fas fa-sync-alt me-2"></i>' + normalText;
-                }
-            })
-            .catch(error => {
-                console.error('Erro ao verificar pagamento:', error);
-                button.disabled = false;
-                button.innerHTML = '<i class="fas fa-sync-alt me-2"></i>' + normalText;
-            });
-    }
-    
-    // Função para verificar o status do pagamento sem feedback visual
-    function checkPaymentStatusSilent(url) {
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'PAID') {
-                    window.location.href = data.redirect_url;
-                }
-            })
-            .catch(error => {
-                console.error('Erro ao verificar pagamento:', error);
-            });
-    }
-    
-    // Inicialização quando o DOM estiver pronto
-    document.addEventListener('DOMContentLoaded', function() {
-        const checkBtn = document.getElementById('check-payment-btn');
+        // Visual feedback
+        const copyBtn = pixCodeInput.nextElementSibling;
+        const originalText = copyBtn.innerHTML;
         
-        if (checkBtn) {
-            // Handler para o botão de verificação
-            checkBtn.addEventListener('click', function() {
-                checkPaymentStatus(checkBtn, pixConfig.checkStatusUrl, pixConfig.checkPaymentText, pixConfig.verifyingText);
-            });
+        // Change button appearance
+        copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+        copyBtn.classList.add('bg-success');
+        
+        // Create temporary tooltip
+        const notification = document.createElement('div');
+        notification.textContent = "{% trans 'Código copiado!' %}";
+        notification.style.position = 'absolute';
+        notification.style.right = '0';
+        notification.style.top = '-40px';
+        notification.style.background = 'rgba(40, 167, 69, 0.9)';
+        notification.style.color = 'white';
+        notification.style.padding = '8px 12px';
+        notification.style.borderRadius = '4px';
+        notification.style.fontSize = '14px';
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.3s ease';
+        
+        // Add tooltip to DOM
+        copyBtn.style.position = 'relative';
+        copyBtn.appendChild(notification);
+        
+        // Animate tooltip
+        setTimeout(() => {
+            notification.style.opacity = '1';
+        }, 10);
+        
+        // Reset button after delay
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            copyBtn.classList.remove('bg-success');
+            copyBtn.innerHTML = originalText;
             
-            // Verificar automaticamente a cada 30 segundos
-            setInterval(function() {
-                checkPaymentStatusSilent(pixConfig.checkStatusUrl);
-            }, 30000);
+            // Remove tooltip after fade out
+            setTimeout(() => {
+                copyBtn.removeChild(notification);
+            }, 300);
+        }, 2000);
+    }
+    
+    // Função para verificar o status do pagamento periodicamente
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkPaymentBtn = document.getElementById('check-payment-btn');
+        let checkInterval = null;
+        
+        // Função para verificar o status do pagamento
+        async function checkPaymentStatus() {
+            try {
+                const response = await fetch(pixConfig.checkStatusUrl);
+                const data = await response.json();
+                
+                if (data.status === 'PAID') {
+                    // Se pago, redireciona para a URL fornecida
+                    clearInterval(checkInterval);
+                    window.location.href = data.redirect_url;
+                }
+                
+                return data.status;
+            } catch (error) {
+                console.error('Erro ao verificar status:', error);
+                return null;
+            }
+        }
+        
+        // Verifica a cada 30 segundos
+        checkInterval = setInterval(checkPaymentStatus, 30000);
+        
+        // Evento de clique no botão de verificar
+        if (checkPaymentBtn) {
+            checkPaymentBtn.addEventListener('click', async function() {
+                const btn = this;
+                const originalText = btn.innerHTML;
+                
+                // Altera o texto do botão e desabilita durante a verificação
+                btn.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>${pixConfig.verifyingText}`;
+                btn.disabled = true;
+                
+                // Verifica o status
+                const status = await checkPaymentStatus();
+                
+                // Se não foi redirecionado (ou seja, ainda não foi pago), restaura o botão
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 1000);
+            });
         }
     });
 </script>

@@ -30,19 +30,55 @@ class EnrollmentRequiredMixin(UserPassesTestMixin):
     """
     def test_func(self):
         if not self.request.user.is_authenticated or not self.request.user.is_student:
+            print(f"[DEBUG] EnrollmentRequiredMixin: Usuário não autenticado ou não é aluno")
             return False
             
         # Obter o curso da URL
         course_id = self.kwargs.get('course_id') or self.kwargs.get('pk')
         if course_id:
             course = get_object_or_404(Course, pk=course_id)
-            return Enrollment.objects.filter(
+            has_active_enrollment = Enrollment.objects.filter(
                 student=self.request.user, 
                 course=course,
                 status=Enrollment.Status.ACTIVE
             ).exists()
+            print(f"[DEBUG] EnrollmentRequiredMixin: Verificando acesso ao curso {course_id} - Matricula ativa: {has_active_enrollment}")
+            return has_active_enrollment
             
+        print(f"[DEBUG] EnrollmentRequiredMixin: Curso não encontrado na URL")
         return False
+    
+    def handle_no_permission(self):
+        # Obter o curso da URL
+        course_id = self.kwargs.get('course_id') or self.kwargs.get('pk')
+        
+        if course_id and self.request.user.is_authenticated and self.request.user.is_student:
+            course = get_object_or_404(Course, pk=course_id)
+            
+            # Verificar se o aluno está matriculado mas com status PENDING
+            try:
+                enrollment = Enrollment.objects.get(
+                    student=self.request.user,
+                    course=course
+                )
+                
+                print(f"[DEBUG] EnrollmentRequiredMixin.handle_no_permission: Matrícula encontrada com status {enrollment.status}")
+                
+                # Se matrícula existe mas está pendente, redirecionar para pagamento
+                if enrollment.status == Enrollment.Status.PENDING:
+                    messages.warning(self.request, 'Sua matrícula está pendente de pagamento. Por favor, conclua o pagamento para acessar o curso.')
+                    print(f"[DEBUG] EnrollmentRequiredMixin: Redirecionando para pagamento PIX do curso {course_id}")
+                    return redirect('payments:create_pix_payment', course_id=course_id)
+                elif enrollment.status == Enrollment.Status.CANCELLED:
+                    messages.warning(self.request, 'Sua matrícula neste curso foi cancelada. Por favor, matricule-se novamente.')
+                    print(f"[DEBUG] EnrollmentRequiredMixin: Matrícula cancelada para o curso {course_id}")
+            
+            except Enrollment.DoesNotExist:
+                print(f"[DEBUG] EnrollmentRequiredMixin: Matrícula não encontrada para o curso {course_id}")
+                pass
+                
+        # Comportamento padrão
+        return super().handle_no_permission()
 
 
 class StudentDashboardView(LoginRequiredMixin, StudentRequiredMixin, ListView):
@@ -334,27 +370,47 @@ class CourseEnrollView(LoginRequiredMixin, View):
             print(f"[DEBUG] ERRO: Usuário não é um aluno")
             return redirect('courses:student:course_detail', pk=course.id)
         
+        # Verifica se o curso é pago (tem preço maior que zero)
+        is_paid_course = course.price and course.price > 0
+        print(f"[DEBUG] Curso é pago: {is_paid_course}, Preço: {course.price}")
+        
         # Verifica se o aluno já está matriculado
         try:
             print(f"[DEBUG] Tentando matricular {self.request.user.email} no curso {course.id} - {course.title}")
             enrollment, created = Enrollment.objects.get_or_create(
                 student=self.request.user,
                 course=course,
-                defaults={'status': Enrollment.Status.ACTIVE}
+                defaults={'status': Enrollment.Status.PENDING if is_paid_course else Enrollment.Status.ACTIVE}
             )
+            
             print(f"[DEBUG] Matrícula criada: {created}, Status: {enrollment.status}")
             
-            if not created and enrollment.status == Enrollment.Status.CANCELLED:
-                # Se a matrícula estava cancelada, reativa
-                print(f"[DEBUG] Reativando matrícula cancelada")
+            # Se o curso é pago e a matrícula estava cancelada ou é nova, redireciona para pagamento
+            if is_paid_course and (created or enrollment.status == Enrollment.Status.CANCELLED):
+                print(f"[DEBUG] Curso pago - Redirecionando para pagamento PIX")
+                # Atualiza o status para 'PENDING' para permitir o pagamento
+                enrollment.status = Enrollment.Status.PENDING
+                enrollment.save()
+                
+                # Redireciona para a página de pagamento via PIX
+                return redirect('payments:create_pix_payment', course_id=course.id)
+            
+            elif not created and enrollment.status == Enrollment.Status.CANCELLED:
+                # Se a matrícula estava cancelada e o curso é gratuito, reativa
+                print(f"[DEBUG] Reativando matrícula cancelada para curso gratuito")
                 enrollment.status = Enrollment.Status.ACTIVE
                 enrollment.save()
                 messages.success(self.request, 'Você reativou sua matrícula no curso.')
             elif not created:
                 print(f"[DEBUG] Usuário já está matriculado")
-                messages.info(self.request, 'Você já está matriculado neste curso.')
+                if enrollment.status == Enrollment.Status.ACTIVE:
+                    messages.info(self.request, 'Você já está matriculado neste curso.')
+                elif enrollment.status == Enrollment.Status.PENDING:
+                    print(f"[DEBUG] Redirecionando para pagamento pendente")
+                    return redirect('payments:create_pix_payment', course_id=course.id)
             else:
-                print(f"[DEBUG] Nova matrícula realizada com sucesso")
+                # Nova matrícula em curso gratuito
+                print(f"[DEBUG] Nova matrícula realizada com sucesso em curso gratuito")
                 messages.success(self.request, 'Matrícula realizada com sucesso!')
                 
                 # Cria registros de progresso para todas as aulas
@@ -373,8 +429,16 @@ class CourseEnrollView(LoginRequiredMixin, View):
             print(f"[DEBUG] ERRO na matrícula: {str(e)}")
             messages.error(self.request, f'Erro ao processar a matrícula: {str(e)}')
         
-        print(f"[DEBUG] Redirecionando para página de aprendizado do curso {self.course_id}")
-        return HttpResponseRedirect(self.get_success_url())
+        # Não redirecionar para a página de aprendizado se o pagamento está pendente
+        # ou se já foi redirecionado para o pagamento
+        if is_paid_course and (created or enrollment.status == Enrollment.Status.PENDING):
+            # Um redirecionamento para pagamento já deve ter ocorrido em outra parte do código
+            # Esta linha provavelmente nunca será alcançada, mas é uma proteção adicional
+            print(f"[DEBUG] Tentando redirecionar novamente para pagamento PIX")
+            return redirect('payments:create_pix_payment', course_id=course.id)
+        else:
+            print(f"[DEBUG] Redirecionando para página de aprendizado do curso {self.course_id}")
+            return HttpResponseRedirect(self.get_success_url())
     
     def get_success_url(self):
         # Importante: usar o ID do curso que acabou de ser processado
@@ -398,20 +462,45 @@ class CourseLearnView(LoginRequiredMixin, DetailView):
     def dispatch(self, request, *args, **kwargs):
         course = get_object_or_404(Course, pk=kwargs['pk'], status=Course.Status.PUBLISHED)
         
+        # Adicionar logs para depuração
+        user_email = request.user.email
+        user_type = request.user.user_type
+        print(f"[DEBUG] CourseLearnView.dispatch - usuário: {user_email}, tipo: {user_type}, curso: {kwargs['pk']}")
+        
         # Verifica se o usuário é professor e autor do curso
         is_professor = request.user.user_type == User.Types.PROFESSOR
         is_course_author = is_professor and course.professor == request.user
         
-        # Se não for professor/autor, verifica se está matriculado
+        print(f"[DEBUG] is_professor: {is_professor}, is_course_author: {is_course_author}")
+        
+        # Se não for professor/autor, verifica se está matriculado e com status ACTIVE
         if not (is_professor and is_course_author):
             try:
-                Enrollment.objects.get(
+                enrollment = Enrollment.objects.get(
                     student=request.user,
-                    course=course,
-                    status=Enrollment.Status.ACTIVE
+                    course=course
                 )
+                
+                print(f"[DEBUG] Status da matrícula: {enrollment.status}")
+                
+                # Verificar se a matrícula está ativa
+                if enrollment.status != Enrollment.Status.ACTIVE:
+                    if enrollment.status == Enrollment.Status.PENDING:
+                        messages.warning(request, 'Sua matrícula está pendente de pagamento. Por favor, conclua o pagamento para acessar o curso.')
+                        print(f"[DEBUG] Matrícula pendente, redirecionando para o detalhe do curso")
+                        return redirect('payments:create_pix_payment', course_id=course.id)
+                    elif enrollment.status == Enrollment.Status.CANCELLED:
+                        messages.error(request, 'Sua matrícula neste curso foi cancelada.')
+                        print(f"[DEBUG] Matrícula cancelada, redirecionando para o detalhe do curso")
+                        return redirect('courses:student:course_detail', pk=course.id)
+                    else:
+                        messages.error(request, 'Sua matrícula neste curso não está ativa.')
+                        print(f"[DEBUG] Matrícula não está ativa, redirecionando para o detalhe do curso")
+                        return redirect('courses:student:course_detail', pk=course.id)
+                
             except Enrollment.DoesNotExist:
                 messages.error(request, 'Você não está matriculado neste curso.')
+                print(f"[DEBUG] Usuário não está matriculado, redirecionando para o detalhe do curso")
                 return redirect('courses:student:course_detail', pk=course.id)
         
         return super().dispatch(request, *args, **kwargs)
