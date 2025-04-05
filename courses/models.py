@@ -317,3 +317,91 @@ class LessonProgress(models.Model):
             ).count()
             
             self.enrollment.update_progress(completed_lessons)
+
+
+class VideoProgress(models.Model):
+    """
+    Modelo para rastrear o progresso detalhado de visualização de vídeos.
+    """
+    # Relacionamento
+    lesson_progress = models.OneToOneField(
+        LessonProgress,
+        on_delete=models.CASCADE,
+        related_name='video_progress',
+        verbose_name=_('progresso da aula')
+    )
+    
+    # Campos de rastreamento
+    current_position = models.PositiveIntegerField(
+        _('posição atual (segundos)'),
+        default=0,
+        help_text=_('Posição atual em segundos de onde o aluno parou de assistir')
+    )
+    video_duration = models.PositiveIntegerField(
+        _('duração total (segundos)'),
+        default=0,
+        help_text=_('Duração total do vídeo em segundos')
+    )
+    watched_percentage = models.PositiveIntegerField(
+        _('porcentagem assistida'),
+        default=0,
+        help_text=_('Porcentagem do vídeo que foi assistida (0-100)')
+    )
+    watched_segments = models.JSONField(
+        _('segmentos assistidos'),
+        null=True,
+        blank=True,
+        help_text=_('Registra os segmentos do vídeo já assistidos pelo aluno')
+    )
+    last_updated = models.DateTimeField(_('última atualização'), auto_now=True)
+    
+    class Meta:
+        verbose_name = _('progresso de vídeo')
+        verbose_name_plural = _('progressos de vídeos')
+    
+    def __str__(self):
+        return f"Vídeo: {self.lesson_progress.lesson.title} - {self.watched_percentage}% assistido"
+    
+    def update_progress(self, current_time, watched_segments=None):
+        """
+        Atualiza o progresso do vídeo com base na posição atual e segmentos assistidos.
+        """
+        # Atualiza a posição atual
+        self.current_position = current_time
+        
+        # Atualiza os segmentos assistidos, se fornecidos
+        if watched_segments is not None:
+            self.watched_segments = watched_segments
+            
+            # Calcula a porcentagem assistida com base nos segmentos
+            if self.video_duration > 0 and self.watched_segments:
+                total_watched_time = self.get_total_watched_time()
+                self.watched_percentage = min(100, int((total_watched_time / self.video_duration) * 100))
+        else:
+            # Calcula a porcentagem com base apenas na posição atual
+            if self.video_duration > 0:
+                self.watched_percentage = min(100, int((current_time / self.video_duration) * 100))
+        
+        self.save()
+        
+        # Verifica se deve marcar a aula como concluída (se assistiu mais de 90%)
+        if self.watched_percentage >= 90 and not self.lesson_progress.is_completed:
+            self.lesson_progress.complete()
+            
+        return self.watched_percentage
+    
+    def get_total_watched_time(self):
+        """
+        Calcula o tempo total assistido com base nos segmentos.
+        Retorna o tempo total em segundos.
+        """
+        if not self.watched_segments:
+            return self.current_position
+            
+        total_time = 0
+        for start, end in self.watched_segments:
+            segment_duration = end - start
+            if segment_duration > 0:
+                total_time += segment_duration
+                
+        return total_time

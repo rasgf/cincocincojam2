@@ -2,6 +2,7 @@ from django.urls import path, include
 from django.views.generic.base import RedirectView
 from . import views
 from . import student_views
+from . import api
 
 app_name = 'courses'
 
@@ -43,4 +44,9 @@ urlpatterns = [
     
     # APIs
     path('api/professor-courses/', views.api_professor_courses, name='api_professor_courses'),
+    
+    # APIs de progresso de vídeo
+    path('api/video-progress/update/', api.update_video_progress, name='api_update_video_progress'),
+    path('api/video-progress/<int:lesson_id>/', api.get_video_progress, name='api_get_video_progress'),
+    path('api/course-progress/<int:course_id>/', api.get_course_video_progress, name='api_course_progress'),
 ]
