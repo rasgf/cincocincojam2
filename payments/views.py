@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy, reverse
-from django.views.generic import ListView, DetailView, TemplateView, View
+from django.views.generic import ListView, DetailView, TemplateView, View, CreateView, UpdateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count, Q, F, Prefetch
@@ -10,10 +10,12 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
+import uuid
+from django.http import JsonResponse
 
 from courses.views import ProfessorRequiredMixin, AdminRequiredMixin, StudentRequiredMixin
 from courses.models import Course, Enrollment
-from .models import PaymentTransaction
+from .models import PaymentTransaction, SingleSale
 from .openpix_service import OpenPixService
 
 User = get_user_model()
@@ -681,3 +683,294 @@ def emit_payment_charge(request, transaction_id):
     except Exception as e:
         messages.error(request, f'Erro ao emitir cobrança: {str(e)}')
         return redirect('payments:professor_transactions')
+
+
+# Views para vendas avulsas
+class SingleSaleListView(LoginRequiredMixin, ProfessorRequiredMixin, ListView):
+    """
+    Lista todas as vendas avulsas criadas pelo professor/vendedor.
+    """
+    model = SingleSale
+    template_name = 'payments/professor/singlesale_list.html'
+    context_object_name = 'sales'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        queryset = SingleSale.objects.filter(seller=self.request.user)
+        
+        # Filtro por status
+        status = self.request.GET.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+            
+        # Filtro por período
+        start_date = self.request.GET.get('start_date')
+        end_date = self.request.GET.get('end_date')
+        if start_date and end_date:
+            try:
+                from datetime import datetime
+                start = datetime.strptime(start_date, '%Y-%m-%d')
+                end = datetime.strptime(end_date, '%Y-%m-%d')
+                end = end.replace(hour=23, minute=59, second=59)  # Fim do dia
+                queryset = queryset.filter(created_at__range=[start, end])
+            except ValueError:
+                pass
+        
+        return queryset.order_by('-created_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Status possíveis para o filtro
+        context['status_choices'] = SingleSale.Status.choices
+        
+        # Filtros ativos
+        context['selected_status'] = self.request.GET.get('status', '')
+        context['start_date'] = self.request.GET.get('start_date', '')
+        context['end_date'] = self.request.GET.get('end_date', '')
+        
+        # Totalizadores
+        total_amount = self.get_queryset().aggregate(Sum('amount'))['amount__sum'] or 0
+        total_paid = self.get_queryset().filter(status=SingleSale.Status.PAID).aggregate(Sum('amount'))['amount__sum'] or 0
+        total_pending = self.get_queryset().filter(status=SingleSale.Status.PENDING).aggregate(Sum('amount'))['amount__sum'] or 0
+        
+        context['total_amount'] = total_amount
+        context['total_paid'] = total_paid
+        context['total_pending'] = total_pending
+        
+        return context
+
+
+class SingleSaleCreateView(LoginRequiredMixin, ProfessorRequiredMixin, CreateView):
+    """
+    Permite ao professor/vendedor criar uma nova venda avulsa.
+    """
+    model = SingleSale
+    template_name = 'payments/professor/singlesale_form.html'
+    fields = ['description', 'amount', 'customer_name', 'customer_email', 'customer_cpf']
+    success_url = reverse_lazy('payments:singlesale_list')
+    
+    def form_valid(self, form):
+        # Define o vendedor como o usuário atual
+        form.instance.seller = self.request.user
+        
+        response = super().form_valid(form)
+        
+        # Adiciona mensagem de sucesso
+        messages.success(self.request, _('Venda avulsa criada com sucesso!'))
+        
+        return response
+
+
+class SingleSaleDetailView(LoginRequiredMixin, ProfessorRequiredMixin, DetailView):
+    """
+    Mostra detalhes de uma venda avulsa específica.
+    """
+    model = SingleSale
+    template_name = 'payments/professor/singlesale_detail.html'
+    context_object_name = 'sale'
+    
+    def get_queryset(self):
+        # Garantir que só mostra vendas do professor atual
+        return SingleSale.objects.filter(seller=self.request.user)
+
+
+# View para gerar pagamento via Pix para uma venda avulsa
+@login_required
+def create_singlesale_pix(request, sale_id):
+    """
+    Cria um pagamento Pix para uma venda avulsa.
+    """
+    sale = get_object_or_404(SingleSale, id=sale_id, seller=request.user)
+    
+    if sale.status == SingleSale.Status.PAID:
+        messages.warning(request, _('Esta venda já foi paga!'))
+        return redirect('payments:singlesale_detail', pk=sale.id)
+    
+    if sale.brcode:
+        messages.info(request, _('Esta venda já possui um Pix gerado.'))
+        return redirect('payments:singlesale_pix_detail', sale_id=sale.id)
+    
+    # Inicia o serviço de Pix
+    openpix_service = OpenPixService()
+    
+    # Define os dados para a cobrança
+    charge_data = {
+        'correlationID': str(uuid.uuid4()),
+        'value': int(sale.amount * 100),  # Converte para centavos
+        'comment': f"Venda: {sale.description}",
+        'customer': {
+            'name': sale.customer_name,
+            'email': sale.customer_email,
+            'phone': "",  # Opcional
+            'taxID': sale.customer_cpf or ""  # CPF ou CNPJ se disponível
+        }
+    }
+    
+    # Cria a cobrança via API
+    try:
+        response = openpix_service.create_charge_dict(charge_data)
+        
+        if response and response.get('brCode'):
+            # Atualiza a venda com os dados do Pix
+            sale.correlation_id = charge_data['correlationID']
+            sale.brcode = response.get('brCode')
+            sale.qrcode_image = response.get('qrCodeImage')
+            sale.save()
+            
+            messages.success(request, _('Pagamento Pix gerado com sucesso!'))
+            return redirect('payments:singlesale_pix_detail', sale_id=sale.id)
+        else:
+            messages.error(request, _('Erro ao gerar o Pix. Tente novamente.'))
+    except Exception as e:
+        messages.error(request, _(f'Erro ao gerar o Pix: {str(e)}'))
+    
+    return redirect('payments:singlesale_detail', pk=sale.id)
+
+
+@login_required
+def singlesale_pix_detail(request, sale_id):
+    """
+    Exibe os detalhes do pagamento Pix para uma venda avulsa.
+    """
+    sale = get_object_or_404(SingleSale, id=sale_id)
+    
+    # Verificar permissão (apenas o vendedor ou o cliente por email)
+    is_seller = request.user == sale.seller
+    
+    if not is_seller and not request.user.is_superuser:
+        messages.error(request, _('Você não tem permissão para acessar esta página.'))
+        return redirect('home')
+    
+    context = {
+        'sale': sale,
+        'is_seller': is_seller
+    }
+    
+    return render(request, 'payments/singlesale_pix_detail.html', context)
+
+
+@login_required
+def check_singlesale_payment_status(request, sale_id):
+    """
+    Verifica o status do pagamento via API e atualiza o status da venda.
+    """
+    sale = get_object_or_404(SingleSale, id=sale_id)
+    
+    # Verificar permissão
+    if request.user != sale.seller and not request.user.is_superuser:
+        return JsonResponse({'error': 'Permissão negada'}, status=403)
+    
+    # Se já está pago, apenas retorna o status
+    if sale.status == SingleSale.Status.PAID:
+        return JsonResponse({
+            'status': sale.status,
+            'status_display': sale.get_status_display(),
+            'paid_at': sale.paid_at.isoformat() if sale.paid_at else None
+        })
+    
+    # Consulta a API da OpenPix para verificar o status
+    openpix_service = OpenPixService()
+    
+    try:
+        payment_info = openpix_service.get_charge(sale.correlation_id)
+        
+        if payment_info and payment_info.get('status') == 'COMPLETED':
+            # Atualiza o status para pago
+            sale.mark_as_paid()
+            
+            # Tenta emitir nota fiscal, se disponível
+            try:
+                from invoices.models import Invoice
+                invoice = Invoice.objects.create(
+                    type='rps',
+                    transaction=None,  # Não é uma transação de matrícula
+                    singlesale=sale,  # Relaciona com a venda avulsa
+                    amount=sale.amount,
+                    customer_name=sale.customer_name,
+                    customer_email=sale.customer_email,
+                    customer_tax_id=sale.customer_cpf,
+                    description=sale.description,
+                    status='pending'
+                )
+                # O processamento posterior é feito por signals ou tarefas assíncronas
+            except (ImportError, Exception) as e:
+                print(f"Erro ao criar nota fiscal: {e}")
+            
+            return JsonResponse({
+                'status': sale.status,
+                'status_display': sale.get_status_display(),
+                'paid_at': sale.paid_at.isoformat()
+            })
+        
+        # Retorna o status atual
+        return JsonResponse({
+            'status': sale.status,
+            'status_display': sale.get_status_display()
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+class SingleSaleAdminListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
+    """
+    Lista todas as vendas avulsas para o administrador.
+    """
+    model = SingleSale
+    template_name = 'payments/admin/singlesale_list.html'
+    context_object_name = 'sales'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        queryset = SingleSale.objects.all()
+        
+        # Filtros diversos
+        seller_id = self.request.GET.get('seller')
+        if seller_id:
+            queryset = queryset.filter(seller_id=seller_id)
+            
+        status = self.request.GET.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+            
+        return queryset.order_by('-created_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Dados para filtros
+        context['status_choices'] = SingleSale.Status.choices
+        context['selected_status'] = self.request.GET.get('status', '')
+        
+        # Lista de vendedores para o filtro
+        User = get_user_model()
+        context['sellers'] = User.objects.filter(sales__isnull=False).distinct()
+        context['selected_seller'] = self.request.GET.get('seller', '')
+        
+        # Totalizadores
+        total_amount = self.get_queryset().aggregate(Sum('amount'))['amount__sum'] or 0
+        context['total_amount'] = total_amount
+        
+        return context
+
+
+class SingleSaleUpdateView(LoginRequiredMixin, ProfessorRequiredMixin, UpdateView):
+    """
+    Permite ao professor/vendedor atualizar uma venda avulsa existente.
+    """
+    model = SingleSale
+    template_name = 'payments/professor/singlesale_form.html'
+    fields = ['description', 'amount', 'customer_name', 'customer_email', 'customer_cpf', 'status']
+    
+    def get_queryset(self):
+        # Garantir que só atualiza vendas do professor atual
+        return SingleSale.objects.filter(seller=self.request.user)
+    
+    def get_success_url(self):
+        return reverse_lazy('payments:singlesale_detail', kwargs={'pk': self.object.pk})
+    
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, _('Venda avulsa atualizada com sucesso!'))
+        return response

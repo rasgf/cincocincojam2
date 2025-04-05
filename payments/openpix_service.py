@@ -37,46 +37,61 @@ class OpenPixService:
         if not correlation_id:
             correlation_id = f"course-{course.id}-{student.id}-{int(timezone.now().timestamp())}"
         
+        # Preparar dados para a cobrança
+        charge_data = {
+            "correlationID": correlation_id,
+            "value": int(course.price * 100),  # Valor em centavos
+            "comment": f"Matrícula no curso: {course.title}",
+            "customer": {
+                "name": student.get_full_name() or student.username,
+                "email": student.email,
+                "phone": student.phone if hasattr(student, 'phone') and student.phone else "",
+                "taxID": student.cpf if hasattr(student, 'cpf') and student.cpf else ""
+            },
+            "expiresIn": 3600,  # 1 hora em segundos
+            "additionalInfo": [
+                {
+                    "key": "Curso",
+                    "value": course.title
+                }
+            ]
+        }
+
+        # Chamar método genérico para criar a cobrança
+        return self.create_charge_dict(charge_data, correlation_id, use_local_simulation)
+    
+    def create_charge_dict(self, charge_data, correlation_id=None, use_local_simulation=False):
+        """
+        Cria uma cobrança Pix a partir de um dicionário de dados
+        
+        Args:
+            charge_data: Dicionário com os dados da cobrança
+            correlation_id: ID opcional para correlação
+            use_local_simulation: Se True, gera dados localmente sem chamar a API externa
+            
+        Returns:
+            dict: Resposta da API com informações da cobrança
+        """
+        # Se passado um correlation_id como parâmetro, sobrescreve o que está no charge_data
+        if correlation_id:
+            charge_data["correlationID"] = correlation_id
+        
         # Se solicitado, usar simulação local em vez de chamar a API
         if use_local_simulation or settings.DEBUG:
-            print(f"Usando simulação LOCAL para criar cobrança: {correlation_id}")
+            print(f"Usando simulação LOCAL para criar cobrança: {charge_data['correlationID']}")
             # Gerar um QR code fictício para testes
             return {
-                "correlationID": correlation_id,
-                "value": int(course.price * 100),
+                "correlationID": charge_data["correlationID"],
+                "value": charge_data["value"],
                 "status": "ACTIVE",
                 "brCode": "00020101021226930014br.gov.bcb.pix2571pix.example.com/simulation/123451520400005303986540510.005802BR5925Usuario Simulado6009Sao Paulo62070503***6304E2CA",
                 "qrCodeImage": "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=00020101021226930014br.gov.bcb.pix2571pix.example.com/simulation/12345",
-                "expiresIn": 3600,
-                "additionalInfo": [
-                    {
-                        "key": "Curso",
-                        "value": course.title
-                    }
-                ]
+                "expiresIn": charge_data.get("expiresIn", 3600),
+                "additionalInfo": charge_data.get("additionalInfo", [])
             }
         
         try:
-            payload = {
-                "correlationID": correlation_id,
-                "value": int(course.price * 100),  # Valor em centavos
-                "comment": f"Matrícula no curso: {course.title}",
-                "customer": {
-                    "name": student.get_full_name() or student.username,
-                    "email": student.email,
-                    "phone": student.phone if hasattr(student, 'phone') and student.phone else "",
-                    "taxID": student.cpf if hasattr(student, 'cpf') and student.cpf else ""
-                },
-                "expiresIn": 3600,  # 1 hora em segundos
-                "additionalInfo": [
-                    {
-                        "key": "Curso",
-                        "value": course.title
-                    }
-                ]
-            }
-            
-            print(f"Tentando criar cobrança para: {correlation_id}")
+            print(f"Tentando criar cobrança para: {charge_data['correlationID']}")
             print(f"URL: {self.BASE_URL}/charge")
             
             # Em ambiente de desenvolvimento, desativar verificação SSL
@@ -85,7 +100,7 @@ class OpenPixService:
             response = requests.post(
                 f"{self.BASE_URL}/charge",
                 headers=self.headers,
-                data=json.dumps(payload),
+                data=json.dumps(charge_data),
                 verify=verify_ssl
             )
             
@@ -96,12 +111,12 @@ class OpenPixService:
                 return response.json()
             else:
                 print(f"Erro na API, usando simulação local como fallback")
-                return self.create_charge(enrollment, correlation_id, use_local_simulation=True)
+                return self.create_charge_dict(charge_data, use_local_simulation=True)
         
         except Exception as e:
             print(f"Erro ao criar cobrança via API: {str(e)}")
             print("Usando simulação local como fallback...")
-            return self.create_charge(enrollment, correlation_id, use_local_simulation=True)
+            return self.create_charge_dict(charge_data, use_local_simulation=True)
     
     def get_charge_status(self, correlation_id, use_local_simulation=False):
         """
@@ -154,6 +169,19 @@ class OpenPixService:
             print(f"Erro ao verificar status via API: {str(e)}")
             print("Usando simulação local como fallback...")
             return self.get_charge_status(correlation_id, use_local_simulation=True)
+    
+    def get_charge(self, correlation_id, use_local_simulation=False):
+        """
+        Alias para get_charge_status para compatibilidade com a função chamadora
+        
+        Args:
+            correlation_id: ID de correlação da cobrança
+            use_local_simulation: Se True, retorna dados simulados localmente
+            
+        Returns:
+            dict: Dados atualizados da cobrança
+        """
+        return self.get_charge_status(correlation_id, use_local_simulation)
 
     def simulate_payment(self, correlation_id, use_local_simulation=False):
         """
