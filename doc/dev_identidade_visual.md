@@ -16,6 +16,7 @@ A implementação consiste na integração do logo "Baile 55" como parte da iden
 - `templates/base.html` - Inserção do logo na barra de navegação
 - `static/css/main.css` - Estilos para exibição adequada do logo nos diferentes temas
 - `templates/home.html` - Ajustes na página inicial
+- `scheduler/templates/scheduler/participant_list.html` - Adaptação dos modais para suportar temas
 
 ## 3. Detalhes da Implementação
 
@@ -113,6 +114,46 @@ Foram adicionadas regras específicas para adaptar o logo em telas menores:
 }
 ```
 
+### 3.4. Adaptação de Modais para Temas
+
+Os modais na aplicação foram adaptados para respeitar os temas claro e escuro:
+
+```css
+/* Compatibilidade de modais com temas */
+.modal-header {
+    border-bottom: 1px solid var(--bs-border-color);
+    color: var(--bs-body-color);
+    background-color: var(--bs-body-bg);
+}
+
+.modal-content {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+.modal-body {
+    background-color: var(--bs-body-bg);
+}
+
+.modal-footer {
+    border-top: 1px solid var(--bs-border-color);
+    background-color: var(--bs-body-bg);
+}
+
+.list-group-item {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+
+.list-group {
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+```
+
+Os botões de fechamento dos modais também foram ajustados para usar a classe `btn-close` sem a especificação de cor `btn-close-white`, permitindo que o Bootstrap aplique automaticamente a cor correta com base no tema atual.
+
 ## 4. Distinção entre Marca e Plataforma
 
 É importante notar a distinção implementada entre:
@@ -126,23 +167,28 @@ Esta distinção foi cuidadosamente mantida em toda a implementação, asseguran
 
 A implementação garante compatibilidade total com o sistema de troca de temas (claro/escuro) da plataforma:
 
-- **Tema Claro**: Exibe automaticamente o logo preto 
-- **Tema Escuro**: Exibe automaticamente o logo branco
-- **Modo Automático**: Detecta a preferência do sistema operacional e aplica o logo adequado
+- **Tema Claro**: Exibe automaticamente o logo preto e elementos de interface em tons claros
+- **Tema Escuro**: Exibe automaticamente o logo branco e elementos de interface em tons escuros
+- **Modo Automático**: Detecta a preferência do sistema operacional e aplica o tema adequado
+- **Componentes Dinâmicos**: Modais, listagens e botões se adaptam automaticamente ao tema atual
 
 ## 6. Boas Práticas Aplicadas
 
 ### 6.1. Preservação da Estrutura
-- Mantida a estrutura básica da barra de navegação
+- Mantida a estrutura básica da barra de navegação e modais
 - Ajustes realizados sem alterar o comportamento ou funcionalidade existente
 
 ### 6.2. Consistência Visual
-- Logo adaptado para manter harmonia com o design existente
+- Logo e componentes adaptados para manter harmonia com o design existente
 - Espaçamentos e proporções ajustados para integração natural
 
 ### 6.3. Responsividade
 - Implementação com adaptação para diferentes tamanhos de tela
 - Testes realizados em resoluções desktop e mobile
+
+### 6.4. Variáveis CSS
+- Utilização de variáveis CSS do Bootstrap (`--bs-body-bg`, `--bs-body-color`, etc.) para consistência com o tema
+- Evitando cores fixas para garantir compatibilidade com ambos os temas
 
 ## 7. Considerações Técnicas
 
@@ -154,6 +200,11 @@ A implementação garante compatibilidade total com o sistema de troca de temas 
 - Criado diretório específico `static/img/logo/` para organização das imagens de identidade visual
 - Facilidade para futuras atualizações ou extensões da identidade visual
 
+### 7.3. Compatibilidade de Modais
+- Removidas classes fixas de cor (`bg-primary`, `text-white`) dos cabeçalhos de modais
+- Substituídas por variáveis CSS que se adaptam ao tema atual
+- Botões de fechamento (`btn-close`) adaptados para detectar automaticamente o tema
+
 ---
 
-**Importante**: Quaisquer modificações futuras na identidade visual devem seguir o padrão estabelecido nesta implementação, mantendo a consistência visual e a compatibilidade com o sistema de temas. 
+**Importante**: Quaisquer modificações futuras na identidade visual e temas devem seguir o padrão estabelecido nesta implementação, usando variáveis CSS do Bootstrap em vez de cores fixas, para manter a consistência visual e a compatibilidade com o sistema de temas. 
