@@ -248,6 +248,12 @@ LOGGING = {
             'filename': os.path.join(BASE_DIR, 'logs', 'payments_debug.log'),
             'formatter': 'verbose',
         },
+        'assistant_file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs', 'assistant.log'),
+            'formatter': 'verbose',
+        },
     },
     'loggers': {
         'invoices': {
@@ -257,6 +263,11 @@ LOGGING = {
         },
         'payments': {
             'handlers': ['console', 'payments_file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'assistant': {
+            'handlers': ['console', 'assistant_file'],
             'level': 'DEBUG',
             'propagate': True,
         },
