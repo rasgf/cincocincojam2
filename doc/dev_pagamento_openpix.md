@@ -500,28 +500,79 @@ A função de simulação de pagamento foi implementada para verificar a configu
 def simulate_pix_payment(request, payment_id):
     """
     Simula o pagamento de uma cobrança Pix no ambiente de sandbox.
+    Essa função só deve ser utilizada em ambiente de desenvolvimento ou teste.
     """
     # Verificar se estamos em ambiente de DEBUG ou DEBUG_PAYMENTS
     if not settings.DEBUG and not getattr(settings, 'DEBUG_PAYMENTS', False):
         messages.error(request, _('Esta funcionalidade está disponível apenas em ambiente de testes.'))
         return redirect('courses:student:dashboard')
     
-    # Restante da implementação...
+    # Implementação da simulação de pagamento...
 ```
 
-### 9.5 Importante: Uso em Produção
+### 9.5 Melhorias na Simulação para Ambiente de Deploy
 
-**ATENÇÃO**: Esta funcionalidade NÃO deve ser habilitada em um ambiente de produção com transações reais. Ela existe apenas para:
+Foram implementadas as seguintes melhorias para garantir o funcionamento correto da simulação em ambientes de deploy:
 
-1. Facilitar testes durante o desenvolvimento
-2. Permitir demonstrações do fluxo completo para stakeholders
-3. Criar dados de teste para cursos e matrículas
+#### 9.5.1 Suporte a Requisições AJAX
 
-Para habilitar temporariamente em produção apenas para demonstração, use o seguinte no arquivo `.env`:
+O backend foi aprimorado para responder adequadamente tanto para requisições normais quanto para requisições AJAX, retornando respostas JSON quando apropriado:
 
+```python
+# Exemplo de resposta para requisições AJAX
+if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+    return JsonResponse({
+        'success': True,
+        'redirect_url': reverse('courses:student:course_learn', kwargs={'pk': enrollment.course.id})
+    })
 ```
-DEBUG=False
-DEBUG_PAYMENTS=True
+
+#### 9.5.2 Tratamento de Erros Aprimorado
+
+A implementação de simulação de pagamento agora inclui tratamento de erros mais robusto:
+
+- Verificação detalhada do status da resposta HTTP
+- Exibição de mensagens de erro específicas no modal
+- Logs detalhados no console do navegador para facilitar diagnóstico
+- Suporte a fallback para simulação local quando a API falha
+
+```javascript
+// Código JavaScript melhorado para tratamento de erros
+try {
+    const response = await fetch(pixConfig.simulateUrl, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        credentials: 'same-origin'
+    });
+    
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Erro na resposta:', errorText);
+        throw new Error(`Erro na resposta: ${response.status} ${errorText}`);
+    }
+} catch (error) {
+    console.error('Erro ao simular pagamento:', error);
+    simulationMessage.innerHTML = `<span class="text-danger">Erro ao processar pagamento.</span><br><small>${error.message}</small>`;
+}
 ```
 
-Certifique-se de desabilitar esta configuração (`DEBUG_PAYMENTS=False`) imediatamente após a demonstração para evitar que usuários reais acessem a funcionalidade de simulação. 
+#### 9.5.3 Verificação de Ambiente Flexível
+
+O serviço OpenPix foi modificado para detectar corretamente ambientes de teste, considerando tanto a configuração `DEBUG` quanto `DEBUG_PAYMENTS`:
+
+```python
+def is_sandbox_mode(self):
+    """
+    Verifica se o serviço está operando em ambiente de sandbox ou se DEBUG_PAYMENTS está ativo
+    """
+    # Verificar tanto DEBUG quanto DEBUG_PAYMENTS
+    return settings.DEBUG or getattr(settings, 'DEBUG_PAYMENTS', False)
+```
+
+Isso permite que o botão de simulação funcione corretamente:
+1. Durante o desenvolvimento local (quando `DEBUG=True`)
+2. Em ambientes de homologação (quando `DEBUG=False`, mas `DEBUG_PAYMENTS=True`)
+3. Em demonstrações para clientes (usando a configuração `DEBUG_PAYMENTS=True`) 
