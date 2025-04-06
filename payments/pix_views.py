@@ -110,15 +110,19 @@ def pix_payment_detail(request, payment_id):
                 enrollment.save()
                 
                 messages.success(request, _('Pagamento confirmado! Você foi matriculado no curso.'))
-                return redirect('courses:my_courses')
-        except Exception:
-            pass  # Continuar exibindo a página normalmente
+                return redirect('courses:student:course_learn', pk=enrollment.course.id)
+        except Exception as e:
+            messages.error(request, _('Erro ao verificar status do pagamento: {}').format(str(e)))
     
-    return render(request, 'payments/pix_payment_detail.html', {
+    # Preparar contexto
+    context = {
         'payment': payment,
         'course': payment.enrollment.course,
-        'debug': settings.DEBUG  # Passa a variável DEBUG para o template
-    })
+        'debug': settings.DEBUG,
+        'debug_payments': getattr(settings, 'DEBUG_PAYMENTS', False)
+    }
+    
+    return render(request, 'payments/pix_payment_detail.html', context)
 
 @csrf_exempt
 @require_POST
@@ -268,8 +272,8 @@ def simulate_pix_payment(request, payment_id):
     Simula o pagamento de uma cobrança Pix no ambiente de sandbox.
     Essa função só deve ser utilizada em ambiente de desenvolvimento.
     """
-    # Verificar se estamos em ambiente de DEBUG 
-    if not settings.DEBUG:
+    # Verificar se estamos em ambiente de DEBUG ou DEBUG_PAYMENTS
+    if not settings.DEBUG and not getattr(settings, 'DEBUG_PAYMENTS', False):
         messages.error(request, _('Esta funcionalidade está disponível apenas em ambiente de testes.'))
         return redirect('courses:student:dashboard')
     

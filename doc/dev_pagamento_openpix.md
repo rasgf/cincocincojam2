@@ -433,4 +433,95 @@ A integração com a plataforma OpenPix para pagamentos PIX oferece uma soluçã
 
 Por se tratar de uma funcionalidade que lida diretamente com pagamentos reais, é fundamental seguir as melhores práticas de segurança e realizar testes exaustivos antes de disponibilizar em produção.
 
-Para informações adicionais sobre a API da OpenPix, consulte a documentação oficial em https://developers.openpix.com.br/api/. 
+Para informações adicionais sobre a API da OpenPix, consulte a documentação oficial em https://developers.openpix.com.br/api/.
+
+## 9. Simulação de Pagamentos para Demonstração
+
+### 9.1 Botão de Simulação de Pagamento
+
+Para facilitar testes e demonstrações do fluxo completo de pagamento e matrícula, o sistema implementa um botão de simulação de pagamento na página de pagamento PIX. Esta funcionalidade foi desenvolvida exclusivamente para fins de demonstração e teste do sistema.
+
+```
+┌───────────────────────────────────┐
+│                                   │
+│     ┌───────────────────────┐     │
+│     │     QR Code PIX       │     │
+│     └───────────────────────┘     │
+│                                   │
+│     ┌───────────────────────┐     │
+│     │  Código Copia e Cola  │     │
+│     └───────────────────────┘     │
+│                                   │
+│     ┌───────────────────────┐     │
+│     │   Simular Pagamento   │     │
+│     └───────────────────────┘     │
+│                                   │
+└───────────────────────────────────┘
+```
+
+### 9.2 Funcionamento da Simulação
+
+O botão "Simular Pagamento" executa os seguintes passos:
+
+1. Exibe um modal com animação de carregamento (spinner)
+2. Apresenta uma sequência de mensagens simulando as etapas de um pagamento real:
+   - "Conectando ao sistema de pagamento..."
+   - "Verificando os dados da transação..."
+   - "Confirmando pagamento..."
+   - "Pagamento confirmado! Redirecionando..."
+3. Faz uma requisição AJAX para o endpoint `/pix/simulate/<payment_id>/` 
+4. O backend marca o pagamento como PAID e a matrícula como ACTIVE
+5. O usuário é redirecionado automaticamente para a página do curso
+
+### 9.3 Controle de Disponibilidade
+
+Esta funcionalidade está disponível apenas em ambientes de desenvolvimento ou teste, controlada pelas seguintes configurações:
+
+```python
+# Em settings.py
+DEBUG = True                 # Ambiente de desenvolvimento padrão
+DEBUG_PAYMENTS = True        # Específico para habilitar funcionalidades de teste de pagamento
+```
+
+O template verifica estas configurações para mostrar ou esconder os botões de simulação:
+
+```html
+{% if debug or debug_payments %}
+    <!-- Botões de simulação de pagamento são exibidos -->
+{% endif %}
+```
+
+### 9.4 Implementação no Backend
+
+A função de simulação de pagamento foi implementada para verificar a configuração `DEBUG_PAYMENTS`, permitindo que a simulação seja habilitada mesmo em um ambiente de produção para fins de demonstração específicos:
+
+```python
+@login_required
+def simulate_pix_payment(request, payment_id):
+    """
+    Simula o pagamento de uma cobrança Pix no ambiente de sandbox.
+    """
+    # Verificar se estamos em ambiente de DEBUG ou DEBUG_PAYMENTS
+    if not settings.DEBUG and not getattr(settings, 'DEBUG_PAYMENTS', False):
+        messages.error(request, _('Esta funcionalidade está disponível apenas em ambiente de testes.'))
+        return redirect('courses:student:dashboard')
+    
+    # Restante da implementação...
+```
+
+### 9.5 Importante: Uso em Produção
+
+**ATENÇÃO**: Esta funcionalidade NÃO deve ser habilitada em um ambiente de produção com transações reais. Ela existe apenas para:
+
+1. Facilitar testes durante o desenvolvimento
+2. Permitir demonstrações do fluxo completo para stakeholders
+3. Criar dados de teste para cursos e matrículas
+
+Para habilitar temporariamente em produção apenas para demonstração, use o seguinte no arquivo `.env`:
+
+```
+DEBUG=False
+DEBUG_PAYMENTS=True
+```
+
+Certifique-se de desabilitar esta configuração (`DEBUG_PAYMENTS=False`) imediatamente após a demonstração para evitar que usuários reais acessem a funcionalidade de simulação. 
