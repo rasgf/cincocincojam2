@@ -398,6 +398,30 @@ class AdminFinancialDashboardView(LoginRequiredMixin, AdminRequiredMixin, Templa
         context['total_refunded'] = total_refunded
         context['total_transactions'] = transactions.count()
         
+        # Notas fiscais
+        try:
+            from invoices.models import Invoice
+            # Contagem de notas fiscais por status
+            invoices = Invoice.objects.all()
+            context['invoices_count'] = invoices.count()
+            
+            # Notas por status
+            context['invoices_approved'] = invoices.filter(status='approved').count()
+            context['invoices_pending'] = invoices.filter(status='pending').count()
+            context['invoices_processing'] = invoices.filter(status='processing').count()
+            context['invoices_error'] = invoices.filter(status='error').count()
+            
+            # Notas fiscais recentes (últimas 5)
+            context['recent_invoices'] = invoices.order_by('-created_at')[:5]
+        except ImportError:
+            # App de notas fiscais não disponível
+            context['invoices_count'] = 0
+            context['invoices_approved'] = 0
+            context['invoices_pending'] = 0
+            context['invoices_processing'] = 0
+            context['invoices_error'] = 0
+            context['recent_invoices'] = []
+        
         # Resumo por professor
         professor_stats = []
         for professor in professors:

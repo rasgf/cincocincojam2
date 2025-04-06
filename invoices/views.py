@@ -9,10 +9,12 @@ from django.db import transaction as db_transaction
 from django.utils.translation import gettext_lazy as _
 import logging
 import traceback
+import json
+from django.views.decorators.http import require_POST
 
 from core.models import User
 from payments.models import PaymentTransaction
-from users.decorators import professor_required
+from users.decorators import professor_required, admin_required
 
 from .models import CompanyConfig, Invoice
 from .forms import CompanyConfigForm
@@ -207,61 +209,82 @@ def check_invoice_status(request, invoice_id):
             response = service.check_invoice_status(invoice)
             logger.info(f"Resposta da verificação de status: {response}")
             
-            # Preparar uma resposta mais detalhada
-            response_data = {
-                'status': invoice.status,
-                'focus_status': invoice.focus_status,
-                'message': _('Status atualizado com sucesso'),
-                'status_changed': status_before != invoice.status,
-                'focus_status_changed': focus_status_before != invoice.focus_status,
-                'previous_status': status_before,
-                'previous_focus_status': focus_status_before,
-                'invoice_id': invoice.id
-            }
-            
-            # Registrar mudanças de status
+            # Se o status mudou, mostre uma mensagem de sucesso
             if status_before != invoice.status:
                 logger.info(f"Status alterado: {status_before} -> {invoice.status}")
-            if focus_status_before != invoice.focus_status:
+                messages.success(request, _(f'Status da nota fiscal atualizado de {status_before} para {invoice.status}.'))
+            elif focus_status_before != invoice.focus_status:
                 logger.info(f"Focus status alterado: {focus_status_before} -> {invoice.focus_status}")
+                messages.success(request, _(f'Status alterado no sistema NFE.io para {invoice.focus_status}.'))
+            else:
+                messages.info(request, _('Status da nota fiscal verificado, sem alterações.'))
             
-            # Incluir informações de erro se existirem
-            if invoice.error_message:
-                response_data['error_message'] = invoice.error_message
-                logger.warning(f"Mensagem de erro na nota: {invoice.error_message}")
-                
-            # Incluir URL do PDF se disponível
-            if invoice.focus_pdf_url:
-                response_data['pdf_url'] = invoice.focus_pdf_url
-                logger.debug(f"PDF URL disponível: {invoice.focus_pdf_url}")
-                
-            # Incluir informações adicionais de resposta da API se disponíveis
-            if invoice.response_data:
-                response_data['api_details'] = {
-                    'flowStatus': invoice.response_data.get('flowStatus', None),
-                    'flowMessage': invoice.response_data.get('flowMessage', None)
+            # Verificar se é uma requisição AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                # Preparar uma resposta detalhada para AJAX
+                response_data = {
+                    'status': invoice.status,
+                    'focus_status': invoice.focus_status,
+                    'message': _('Status atualizado com sucesso'),
+                    'status_changed': status_before != invoice.status,
+                    'focus_status_changed': focus_status_before != invoice.focus_status,
+                    'previous_status': status_before,
+                    'previous_focus_status': focus_status_before,
+                    'invoice_id': invoice.id
                 }
-                logger.debug(f"Detalhes adicionais da API: {response_data['api_details']}")
                 
-            logger.info(f"Retornando resposta de status com sucesso para invoice ID {invoice_id}")
-            return JsonResponse(response_data)
+                # Incluir informações de erro se existirem
+                if invoice.error_message:
+                    response_data['error_message'] = invoice.error_message
+                    logger.warning(f"Mensagem de erro na nota: {invoice.error_message}")
+                    
+                # Incluir URL do PDF se disponível
+                if invoice.focus_pdf_url:
+                    response_data['pdf_url'] = invoice.focus_pdf_url
+                    logger.debug(f"PDF URL disponível: {invoice.focus_pdf_url}")
+                    
+                # Incluir informações adicionais de resposta da API se disponíveis
+                if invoice.response_data:
+                    response_data['api_details'] = {
+                        'flowStatus': invoice.response_data.get('flowStatus', None),
+                        'flowMessage': invoice.response_data.get('flowMessage', None)
+                    }
+                    logger.debug(f"Detalhes adicionais da API: {response_data['api_details']}")
+                    
+                logger.info(f"Retornando resposta JSON de status para invoice ID {invoice_id}")
+                return JsonResponse(response_data)
+            else:
+                # Redirecionar para a página de lista de transações
+                return redirect('payments:professor_transactions')
+                
         except Exception as e:
             error_traceback = traceback.format_exc()
             logger.error(f"Exceção ao verificar status: {str(e)}\n{error_traceback}")
             
-            return JsonResponse({
-                'status': 'error',
-                'message': str(e),
-                'error_detail': str(error_traceback),
-                'invoice_id': invoice.id
-            }, status=400)
+            messages.error(request, _(f'Erro ao verificar status: {str(e)}'))
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'error',
+                    'message': str(e),
+                    'error_detail': str(error_traceback),
+                    'invoice_id': invoice.id
+                }, status=400)
+            else:
+                return redirect('payments:professor_transactions')
     except Exception as e:
         logger.error(f"Erro ao localizar invoice {invoice_id} para verificação de status: {str(e)}")
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Nota fiscal não encontrada',
-            'invoice_id': invoice_id
-        }, status=404)
+        
+        messages.error(request, _('Nota fiscal não encontrada.'))
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Nota fiscal não encontrada',
+                'invoice_id': invoice_id
+            }, status=404)
+        else:
+            return redirect('payments:professor_transactions')
 
 @login_required
 @professor_required
@@ -367,3 +390,91 @@ def test_mode(request):
         messages.success(request, _('Modo de teste desativado. As notas fiscais serão emitidas no ambiente real.'))
     
     return redirect('payments:professor_transactions')
+
+@login_required
+def invoice_detail(request, invoice_id):
+    """
+    Exibe os detalhes de uma nota fiscal.
+    Acessível tanto para professores quanto para administradores.
+    """
+    try:
+        # Verificar se o usuário é admin ou professor
+        is_admin = hasattr(request.user, 'is_admin') and request.user.is_admin
+        is_professor = hasattr(request.user, 'is_professor') and request.user.is_professor
+        
+        if not (is_admin or is_professor):
+            logger.warning(f"Usuário {request.user.id} tentou acessar detalhes da nota fiscal {invoice_id} sem permissão")
+            messages.error(request, _('Você não tem permissão para acessar esta página.'))
+            return redirect('dashboard')
+        
+        # Filtrar pela nota fiscal
+        if is_admin:
+            # Administradores podem ver qualquer nota fiscal
+            invoice = get_object_or_404(Invoice, id=invoice_id)
+            return_url = 'payments:admin_dashboard'
+        else:
+            # Professores podem ver apenas suas próprias notas fiscais
+            invoice = get_object_or_404(
+                Invoice,
+                id=invoice_id,
+                transaction__enrollment__course__professor=request.user
+            )
+            return_url = 'payments:professor_transactions'
+            
+        return render(request, 'invoices/invoice_detail.html', {
+            'invoice': invoice,
+            'return_url': return_url,
+            'is_admin': is_admin
+        })
+    except Exception as e:
+        logger.error(f"Erro ao exibir detalhes da nota fiscal {invoice_id}: {str(e)}")
+        messages.error(request, _('Erro ao exibir detalhes da nota fiscal.'))
+        
+        # Redirecionar para a página apropriada com base no tipo de usuário
+        if hasattr(request.user, 'is_admin') and request.user.is_admin:
+            return redirect('payments:admin_dashboard')
+        else:
+            return redirect('payments:professor_transactions')
+
+@login_required
+@admin_required
+def approve_invoice_manually(request, invoice_id):
+    """
+    Simula a aprovação de uma nota fiscal (apenas para testes).
+    IMPORTANTE: Esta função é apenas para testes e não deve ser usada em produção.
+    """
+    # Verificar se estamos em ambiente de produção
+    if not settings.DEBUG:
+        messages.error(request, _('Esta funcionalidade só está disponível em ambiente de desenvolvimento.'))
+        return redirect('payments:admin_dashboard')
+    
+    invoice = get_object_or_404(
+        Invoice,
+        id=invoice_id
+    )
+    
+    logger.info(f"[ADMIN] Forçando aprovação da nota fiscal {invoice_id} para testes.")
+    
+    if invoice.status in ['approved', 'cancelled']:
+        messages.warning(request, _('Esta nota fiscal já está em um estado final (aprovada ou cancelada).'))
+        return redirect('invoices:invoice_detail', invoice_id=invoice_id)
+    
+    # Atualizar o status para aprovado
+    previous_status = invoice.status
+    invoice.status = 'approved'
+    invoice.focus_status = 'Authorized'
+    invoice.response_data = {
+        'flowStatus': 'Authorized',
+        'flowAction': 'ManualApproval',
+        'flowMessage': 'Aprovação manual para fins de teste'
+    }
+    
+    # Gerar uma URL fictícia para o PDF se não existir
+    if not invoice.focus_pdf_url:
+        # Usar um domínio real para o PDF simulado
+        invoice.focus_pdf_url = f"https://storage.googleapis.com/cincocincojam-dev/invoices/pdf_simulated/{invoice.id}.pdf"
+    
+    invoice.save()
+    
+    messages.success(request, _(f'Nota fiscal #{invoice.id} aprovada manualmente com sucesso. Status alterado de {previous_status} para approved. ATENÇÃO: Esta é apenas uma simulação para testes.'))
+    return redirect('invoices:invoice_detail', invoice_id=invoice_id)

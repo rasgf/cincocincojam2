@@ -236,19 +236,21 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-center">
-                                        {% if invoice.status == 'approved' and invoice.focus_pdf_url %}
-                                            <a href="{{ invoice.focus_pdf_url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Visualizar PDF">
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'invoices:invoice_detail' invoice.id %}" class="btn btn-outline-primary" title="Detalhes">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            
+                                            <a href="{% url 'invoices:check_status' invoice.id %}" class="btn btn-outline-secondary check-status-btn" title="Verificar status" data-invoice-id="{{ invoice.id }}">
+                                                <i class="fas fa-sync"></i>
+                                            </a>
+                                            
+                                            {% if invoice.focus_pdf_url %}
+                                            <a href="{{ invoice.focus_pdf_url }}" class="btn btn-outline-success" target="_blank" title="Download PDF">
                                                 <i class="fas fa-file-pdf"></i>
                                             </a>
-                                        {% elif invoice.status == 'processing' %}
-                                            <a href="{% url 'invoices:check_status' invoice.id %}" class="btn btn-sm btn-outline-secondary" title="Verificar Status">
-                                                <i class="fas fa-sync-alt"></i>
-                                            </a>
-                                        {% elif invoice.status == 'error' %}
-                                            <a href="{% url 'invoices:retry' invoice.id %}" class="btn btn-sm btn-outline-danger" title="Tentar Novamente">
-                                                <i class="fas fa-redo-alt"></i>
-                                            </a>
-                                        {% endif %}
+                                            {% endif %}
+                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
