@@ -33,10 +33,10 @@ student_patterns = [
 
 # URLs para pagamentos via Pix
 pix_patterns = [
-    path('pix/create/<int:course_id>/', pix_views.create_pix_payment, name='create_pix_payment'),
+    path('pix/payment/<int:course_id>/', pix_views.create_pix_payment, name='create_pix_payment'),
     path('pix/detail/<int:payment_id>/', pix_views.pix_payment_detail, name='pix_payment_detail'),
-    path('pix/check-status/<int:payment_id>/', pix_views.check_payment_status, name='check_pix_status'),
     path('pix/webhook/', pix_views.pix_webhook, name='pix_webhook'),
+    path('pix/check_status/<int:payment_id>/', pix_views.check_payment_status, name='check_pix_status'),
     path('pix/simulate/<int:payment_id>/', pix_views.simulate_pix_payment, name='simulate_pix_payment'),
 ]
 
