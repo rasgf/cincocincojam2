@@ -274,6 +274,11 @@ def simulate_pix_payment(request, payment_id):
     """
     # Verificar se estamos em ambiente de DEBUG ou DEBUG_PAYMENTS
     if not settings.DEBUG and not getattr(settings, 'DEBUG_PAYMENTS', False):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': 'Esta funcionalidade está disponível apenas em ambiente de testes.'
+            }, status=403)
         messages.error(request, _('Esta funcionalidade está disponível apenas em ambiente de testes.'))
         return redirect('courses:student:dashboard')
     
@@ -286,11 +291,21 @@ def simulate_pix_payment(request, payment_id):
         
         # Verificar se o usuário é o dono do pagamento
         if payment.enrollment.student != request.user and not request.user.is_staff:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Você não tem permissão para simular este pagamento.'
+                }, status=403)
             messages.error(request, _('Você não tem permissão para simular este pagamento.'))
             return redirect('courses:student:dashboard')
         
         # Verificar se o pagamento já foi confirmado
         if payment.status != PaymentTransaction.Status.PENDING:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Este pagamento não está pendente.'
+                }, status=400)
             messages.warning(request, _('Este pagamento não está pendente.'))
             return redirect('payments:pix_payment_detail', payment_id=payment.id)
         
@@ -305,8 +320,6 @@ def simulate_pix_payment(request, payment_id):
         result = openpix.simulate_payment(payment.correlation_id, use_local_simulation=True)
         
         if result.get('success'):
-            messages.success(request, _('Pagamento simulado com sucesso! Você foi matriculado no curso.'))
-            
             # Atualizar status do pagamento para facilitar testes (opcional)
             payment.status = PaymentTransaction.Status.PAID
             payment.payment_date = timezone.now()
@@ -317,14 +330,27 @@ def simulate_pix_payment(request, payment_id):
             enrollment.status = Enrollment.Status.ACTIVE
             enrollment.save()
             
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': True,
+                    'redirect_url': reverse('courses:student:course_learn', kwargs={'pk': enrollment.course.id})
+                })
+                
+            messages.success(request, _('Pagamento simulado com sucesso! Você foi matriculado no curso.'))
             # Redirecionar para a página de aprendizado do curso em vez da página de pagamento
             return redirect('courses:student:course_learn', pk=enrollment.course.id)
         else:
             error_detail = result.get('error', 'Erro desconhecido')
-            messages.error(request, _(f'Erro ao simular pagamento: {error_detail}'))
             print(f"Erro na simulação: {error_detail}")
-        
-        return redirect('payments:pix_payment_detail', payment_id=payment.id)
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': error_detail
+                }, status=500)
+                
+            messages.error(request, _(f'Erro ao simular pagamento: {error_detail}'))
+            return redirect('payments:pix_payment_detail', payment_id=payment.id)
     
     except Exception as e:
         # Log do erro para depuração
@@ -332,5 +358,11 @@ def simulate_pix_payment(request, payment_id):
         print(f"Erro ao processar simulação de pagamento: {str(e)}")
         print(traceback.format_exc())
         
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+            
         messages.error(request, _(f'Erro ao processar simulação: {str(e)}'))
         return redirect('courses:student:dashboard')

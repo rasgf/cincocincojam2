@@ -469,34 +469,56 @@
                 simulationModal.style.display = 'block';
                 
                 // Etapa 1: Processando pagamento
+                console.log('Simulação: Iniciando processo');
                 simulationMessage.textContent = "{% trans 'Conectando ao sistema de pagamento...' %}";
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 
                 // Etapa 2: Verificando dados
+                console.log('Simulação: Verificando dados');
                 simulationMessage.textContent = "{% trans 'Verificando os dados da transação...' %}";
                 await new Promise(resolve => setTimeout(resolve, 1500));
                 
                 // Etapa 3: Confirmando pagamento
+                console.log('Simulação: Confirmando pagamento');
                 simulationMessage.textContent = "{% trans 'Confirmando pagamento...' %}";
                 
-                // Chamada real para simular o pagamento
-                const response = await fetch(pixConfig.simulateUrl);
+                // Chamada real para simular o pagamento via GET (não POST)
+                console.log('Simulação: Enviando solicitação para', pixConfig.simulateUrl);
+                const response = await fetch(pixConfig.simulateUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                console.log('Simulação: Resposta recebida', response.status);
+                
+                // Verificar se houve erro na resposta
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Erro na resposta:', errorText);
+                    throw new Error(`Erro na resposta: ${response.status} ${errorText}`);
+                }
                 
                 // Etapa 4: Finalizando
+                console.log('Simulação: Pagamento confirmado');
                 simulationMessage.textContent = "{% trans 'Pagamento confirmado! Redirecionando...' %}";
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
                 // Redirecionar para a página do curso
+                console.log('Simulação: Redirecionando para', pixConfig.courseLearnUrl);
                 window.location.href = pixConfig.courseLearnUrl;
                 
             } catch (error) {
                 console.error('Erro ao simular pagamento:', error);
-                simulationMessage.innerHTML = `<span class="text-danger">{% trans 'Erro ao processar pagamento.' %}</span>`;
+                simulationMessage.innerHTML = `<span class="text-danger">{% trans 'Erro ao processar pagamento.' %}</span><br><small>${error.message}</small>`;
                 
                 // Fechar modal após um tempo
                 setTimeout(() => {
                     simulationModal.style.display = 'none';
-                }, 3000);
+                }, 5000);
             }
         }
         

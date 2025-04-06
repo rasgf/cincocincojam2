@@ -43,6 +43,16 @@ class OpenPixService:
         """
         return not self.is_sandbox
     
+    def is_sandbox_mode(self):
+        """
+        Verifica se o serviço está operando em ambiente de sandbox ou se DEBUG_PAYMENTS está ativo
+        
+        Returns:
+            bool: True se estiver em sandbox ou DEBUG_PAYMENTS ativo, False se estiver em produção
+        """
+        # Verificar tanto DEBUG quanto DEBUG_PAYMENTS
+        return settings.DEBUG or getattr(settings, 'DEBUG_PAYMENTS', False)
+    
     def create_charge(self, enrollment, correlation_id=None, use_local_simulation=False):
         """
         Cria uma cobrança Pix para uma matrícula
@@ -238,13 +248,17 @@ class OpenPixService:
         Returns:
             dict: Resposta com resultado da simulação
         """
-        # Verifica se estamos em ambiente sandbox
-        if not self.is_sandbox:
-            self.logger.error("Tentativa de simular pagamento em ambiente de PRODUÇÃO! Operação abortada.")
+        # Verifica se estamos em ambiente sandbox ou se DEBUG_PAYMENTS está ativo
+        if not self.is_sandbox and not getattr(settings, 'DEBUG_PAYMENTS', False):
+            self.logger.error("Tentativa de simular pagamento em ambiente de PRODUÇÃO sem DEBUG_PAYMENTS! Operação abortada.")
             return {
                 "success": False, 
                 "error": "Simulação de pagamento não está disponível em ambiente de produção por razões de segurança."
             }
+        
+        # Log da simulação
+        self.logger.info(f"Simulando pagamento para correlation_id: {correlation_id}")
+        self.logger.info(f"DEBUG_PAYMENTS: {getattr(settings, 'DEBUG_PAYMENTS', False)}")
             
         # Se solicitado, usar simulação local em vez de chamar a API
         if use_local_simulation:
@@ -268,7 +282,7 @@ class OpenPixService:
             # De acordo com a documentação: https://developers.openpix.com.br/api#tag/transactions
             url = f"{self.BASE_URL}/testing/charge/{correlation_id}/pay"
             
-            self.logger.info(f"Simulando pagamento para correlation_id: {correlation_id}")
+            self.logger.info(f"Simulando pagamento via API para correlation_id: {correlation_id}")
             self.logger.debug(f"URL: {url}")
             
             # Em ambiente de desenvolvimento, podemos desativar a verificação SSL
@@ -288,6 +302,7 @@ class OpenPixService:
             if response.status_code in [200, 201, 202]:
                 return {"success": True, "data": response.json() if response.text else {}}
             else:
+                self.logger.error(f"Erro ao simular pagamento: {response.text}")
                 return {"success": False, "error": response.text}
                 
         except Exception as e:
