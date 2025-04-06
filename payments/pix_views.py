@@ -126,106 +126,85 @@ def pix_webhook(request):
     """
     Webhook para receber notificações de pagamento da OpenPix.
     """
-    # A implementação completa do webhook será feita posteriormente
-    import json
-    import logging
-    import hmac
-    import hashlib
-    from django.conf import settings
-    from .models import PaymentTransaction
-    from courses.models import Enrollment
-    
-    logger = logging.getLogger('payments')
-    
-    # Log da requisição recebida
     logger.info("Webhook OpenPix recebido")
     
     try:
-        # Verificar assinatura do webhook (quando estiver em produção)
-        if not settings.DEBUG and settings.OPENPIX_WEBHOOK_SECRET:
-            signature = request.headers.get('x-webhook-signature', '')
+        # Obter o corpo da requisição
+        payload = request.body
+        signature = request.headers.get('x-webhook-signature')
+        
+        # Verificar assinatura em ambiente de produção
+        openpix = OpenPixService()
+        
+        if openpix.is_production() and settings.OPENPIX_WEBHOOK_SECRET:
+            if not signature:
+                logger.error("Webhook sem assinatura em ambiente de produção")
+                return HttpResponse(status=401, content="Assinatura não encontrada")
+                
+            # Verificar assinatura
+            import hmac
+            import hashlib
+            import base64
             
-            # Calcular assinatura esperada
-            payload = request.body
-            expected_signature = hmac.new(
+            # Calcular HMAC SHA-256
+            calculated_signature = hmac.new(
                 settings.OPENPIX_WEBHOOK_SECRET.encode('utf-8'),
                 payload,
                 hashlib.sha256
-            ).hexdigest()
+            ).digest()
             
-            if not hmac.compare_digest(signature, expected_signature):
-                logger.error(f"Assinatura de webhook inválida. Recebida: {signature}, Esperada: {expected_signature}")
-                return HttpResponse(status=401)
+            # Codificar em base64
+            calculated_signature_b64 = base64.b64encode(calculated_signature).decode('utf-8')
+            
+            if calculated_signature_b64 != signature:
+                logger.error("Assinatura do webhook inválida")
+                return HttpResponse(status=401, content="Assinatura inválida")
         
-        # Obter dados do webhook
-        payload = json.loads(request.body.decode('utf-8'))
-        logger.info(f"Payload do webhook: {json.dumps(payload)[:200]}...") # Log truncado para não ser muito grande
+        # Parsear o payload
+        data = json.loads(payload)
+        logger.info(f"Webhook data: {json.dumps(data)}")
         
-        # Verificar o tipo de evento
-        event = payload.get('event')
+        # Verificar tipo de evento
+        event = data.get('event')
         if event != 'CHARGE_COMPLETED':
             logger.info(f"Evento ignorado: {event}")
-            return HttpResponse(status=200)  # Aceitar o webhook, mas ignorar eventos que não sejam de pagamento concluído
-        
-        # Obter dados da cobrança
-        charge = payload.get('charge', {})
-        correlation_id = charge.get('correlationID')
-        status = charge.get('status')
-        
-        if not correlation_id or status != 'COMPLETED':
-            logger.info(f"Ignorando webhook - correlation_id ausente ou status diferente de COMPLETED: {status}")
             return HttpResponse(status=200)
         
-        logger.info(f"Processando pagamento para correlation_id: {correlation_id}")
+        # Processar notificação de pagamento
+        charge_data = data.get('charge', {})
+        correlation_id = charge_data.get('correlationID')
         
-        # Buscar a transação correspondente
-        try:
-            # Primeiro, verificar pagamento de curso
-            transaction = PaymentTransaction.objects.get(correlation_id=correlation_id)
-            
-            # Se já estiver pago, apenas retorna sucesso
-            if transaction.status == PaymentTransaction.Status.PAID:
-                logger.info(f"Transação {transaction.id} já estava marcada como paga.")
-                return HttpResponse(status=200)
-            
-            # Marcar como pago
-            transaction.status = PaymentTransaction.Status.PAID
-            transaction.payment_date = timezone.now()
-            transaction.save()
-            
-            # Atualizar status da matrícula
-            enrollment = transaction.enrollment
-            enrollment.status = Enrollment.Status.ACTIVE
-            enrollment.save()
-            
-            logger.info(f"Pagamento confirmado para matrícula {enrollment.id} via webhook.")
-            return HttpResponse(status=200)
-            
-        except PaymentTransaction.DoesNotExist:
-            # Verificar se é uma venda avulsa
-            from .models import SingleSale
-            try:
-                sale = SingleSale.objects.get(correlation_id=correlation_id)
-                
-                # Se já estiver pago, apenas retorna sucesso
-                if sale.status == SingleSale.Status.PAID:
-                    logger.info(f"Venda avulsa {sale.id} já estava marcada como paga.")
-                    return HttpResponse(status=200)
-                
-                # Marcar como pago
-                sale.mark_as_paid()
-                logger.info(f"Pagamento confirmado para venda avulsa {sale.id} via webhook.")
-                return HttpResponse(status=200)
-                
-            except SingleSale.DoesNotExist:
-                logger.error(f"Nenhuma transação encontrada para correlation_id: {correlation_id}")
-                return HttpResponse(status=404)
-    
+        if not correlation_id:
+            logger.error("Webhook sem correlationID")
+            return HttpResponse(status=400, content="correlationID não encontrado")
+        
+        logger.info(f"Processando pagamento para correlationID: {correlation_id}")
+        
+        # Buscar transação pelo correlation_id
+        payment = PaymentTransaction.objects.filter(correlation_id=correlation_id, status='PENDING').first()
+        
+        if not payment:
+            logger.error(f"Pagamento não encontrado para correlationID: {correlation_id}")
+            return HttpResponse(status=404, content="Pagamento não encontrado")
+        
+        # Atualizar status da transação
+        payment.status = 'PAID'
+        payment.payment_date = timezone.now()
+        payment.save()
+        
+        # Atualizar status da matrícula
+        enrollment = payment.enrollment
+        enrollment.status = 'ACTIVE'
+        enrollment.save()
+        
+        logger.info(f"Pagamento {payment.id} confirmado com sucesso via webhook")
+        
+        # Retornar resposta de sucesso
+        return HttpResponse(status=200, content="Webhook processado com sucesso")
+        
     except Exception as e:
         logger.exception(f"Erro ao processar webhook: {str(e)}")
-        return HttpResponse(status=500)
-    
-    return HttpResponse(status=200)
+        return HttpResponse(status=500, content=f"Erro ao processar webhook: {str(e)}")
 
 def check_payment_status(request, payment_id):
     """
@@ -268,8 +247,11 @@ def simulate_pix_payment(request, payment_id):
     Simula o pagamento de uma cobrança Pix no ambiente de sandbox.
     Essa função só deve ser utilizada em ambiente de desenvolvimento.
     """
-    # Verificar se estamos em ambiente de DEBUG 
-    if not settings.DEBUG:
+    from .openpix_service import OpenPixService
+    openpix = OpenPixService()
+    
+    # Verificar se estamos em ambiente de DEBUG ou DEBUG_PAYMENTS
+    if not openpix.is_sandbox:
         messages.error(request, _('Esta funcionalidade está disponível apenas em ambiente de testes.'))
         return redirect('courses:student:dashboard')
     
@@ -280,7 +262,7 @@ def simulate_pix_payment(request, payment_id):
         
         payment = get_object_or_404(PaymentTransaction, id=payment_id)
         
-        # Verificar se o usuário é o dono do pagamento
+        # Verificar se o usuário é o dono do pagamento ou admin
         if payment.enrollment.student != request.user and not request.user.is_staff:
             messages.error(request, _('Você não tem permissão para simular este pagamento.'))
             return redirect('courses:student:dashboard')
@@ -290,43 +272,32 @@ def simulate_pix_payment(request, payment_id):
             messages.warning(request, _('Este pagamento não está pendente.'))
             return redirect('payments:pix_payment_detail', payment_id=payment.id)
         
-        # Chamar API da OpenPix para simular pagamento
-        from .openpix_service import OpenPixService
-        openpix = OpenPixService()
-        
         # Registrar informações no log
-        print(f"Tentando simular pagamento: ID={payment_id}, Correlation ID={payment.correlation_id}")
+        logger.info(f"Tentando simular pagamento: ID={payment_id}, Correlation ID={payment.correlation_id}")
         
-        # Usar simulação local por padrão para evitar problemas de SSL
-        result = openpix.simulate_payment(payment.correlation_id, use_local_simulation=True)
+        # Chamar API para simular pagamento
+        result = openpix.simulate_payment(payment.correlation_id, use_local_simulation=False)
         
         if result.get('success'):
-            messages.success(request, _('Pagamento simulado com sucesso! Você foi matriculado no curso.'))
+            messages.success(request, _('Pagamento simulado com sucesso! Aguarde a confirmação via webhook ou clique em "Verificar pagamento".'))
             
-            # Atualizar status do pagamento para facilitar testes (opcional)
+            # Atualizar status do pagamento para facilitar testes
             payment.status = PaymentTransaction.Status.PAID
             payment.payment_date = timezone.now()
             payment.save()
             
-            # Também atualizar o status da matrícula
+            # Atualizar status da matrícula
             enrollment = payment.enrollment
-            enrollment.status = Enrollment.Status.ACTIVE
+            enrollment.status = 'ACTIVE'
             enrollment.save()
             
-            # Redirecionar para a página de aprendizado do curso em vez da página de pagamento
-            return redirect('courses:student:course_learn', pk=enrollment.course.id)
+            # Redirecionar para a página de cursos
+            return redirect('courses:my_courses')
         else:
-            error_detail = result.get('error', 'Erro desconhecido')
-            messages.error(request, _(f'Erro ao simular pagamento: {error_detail}'))
-            print(f"Erro na simulação: {error_detail}")
-        
-        return redirect('payments:pix_payment_detail', payment_id=payment.id)
+            messages.error(request, _('Erro ao simular pagamento: {}').format(result.get('error', 'Erro desconhecido')))
+            return redirect('payments:pix_payment_detail', payment_id=payment.id)
     
     except Exception as e:
-        # Log do erro para depuração
-        import traceback
-        print(f"Erro ao processar simulação de pagamento: {str(e)}")
-        print(traceback.format_exc())
-        
-        messages.error(request, _(f'Erro ao processar simulação: {str(e)}'))
-        return redirect('courses:student:dashboard')
+        logger.exception(f"Erro ao simular pagamento: {str(e)}")
+        messages.error(request, _('Erro ao processar o pagamento: {}').format(str(e)))
+        return redirect('payments:pix_payment_detail', payment_id=payment.id)

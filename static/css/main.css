@@ -47,9 +47,9 @@ main {
 
 /* Ajuste da navbar para acomodar logo */
 .navbar {
-    min-height: 100px;
-    padding-top: 20px;
-    padding-bottom: 20px;
+    min-height: 85px;
+    padding-top: 8px;
+    padding-bottom: 8px;
 }
 
 /* Logo BAILE 55 versões claro/escuro */
@@ -62,21 +62,18 @@ main {
 }
 
 .navbar-brand img {
-    height: 90px;
+    height: 70px;
     width: auto;
     max-width: 100%;
     object-fit: contain;
 }
 
-.logo-dark {
+/* Por padrão, esconda ambas as logos */
+.logo-dark, .logo-light {
     display: none;
 }
 
-.logo-light {
-    display: block;
-}
-
-/* Na navbar escura, use o logo claro */
+/* Na navbar escura (fundo azul), use o logo claro (branco) */
 .navbar-dark .logo-light {
     display: block;
 }
@@ -85,7 +82,7 @@ main {
     display: none;
 }
 
-/* Na navbar clara, use o logo escuro */
+/* Na navbar clara (fundo branco), use o logo escuro (preto) */
 .navbar-light .logo-light {
     display: none;
 }
@@ -94,26 +91,34 @@ main {
     display: block;
 }
 
-@media (prefers-color-scheme: dark) {
-    body:not(.navbar-dark):not(.navbar-light) .logo-dark {
-        display: block;
-    }
-    
-    body:not(.navbar-dark):not(.navbar-light) .logo-light {
-        display: none;
-    }
+/* Tema escuro - mostra logo claro */
+[data-bs-theme="dark"] .navbar .logo-light {
+    display: block !important;
 }
 
-/* Para responsividade em dispositivos móveis */
+[data-bs-theme="dark"] .navbar .logo-dark {
+    display: none !important;
+}
+
+/* Tema claro - mostra logo escuro */
+[data-bs-theme="light"] .navbar .logo-light {
+    display: none !important;
+}
+
+[data-bs-theme="light"] .navbar .logo-dark {
+    display: block !important;
+}
+
+/* Responsividade em dispositivos móveis */
 @media (max-width: 767px) {
     .navbar {
-        min-height: 80px;
-        padding-top: 15px;
-        padding-bottom: 15px;
+        min-height: 75px;
+        padding-top: 8px;
+        padding-bottom: 8px;
     }
     
     .navbar-brand img {
-        height: 70px;
+        height: 55px;
     }
 }
 
@@ -202,7 +207,7 @@ main {
 
 /* Personalização da Barra de Navegação */
 .navbar-brand img {
-    height: 40px;
+    height: 70px;
 }
 
 .navbar-brand .logo-light {

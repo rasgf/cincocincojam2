@@ -530,3 +530,39 @@ a:hover {
     filter: invert(1) grayscale(100%) brightness(200%);
   }
 }
+
+/* Regras específicas para o logo da marca de acordo com o tema */
+.logo-light {
+  display: none !important;
+}
+
+.logo-dark {
+  display: block !important;
+}
+
+/* Em tema escuro, inverte as logos */
+[data-bs-theme="dark"] .logo-light {
+  display: block !important;
+}
+
+[data-bs-theme="dark"] .logo-dark {
+  display: none !important;
+}
+
+/* Lógica para a navbar escura */
+.navbar-dark .logo-light {
+  display: block !important;
+}
+
+.navbar-dark .logo-dark {
+  display: none !important;
+}
+
+/* Lógica para a navbar clara */
+.navbar-light .logo-light {
+  display: none !important;
+}
+
+.navbar-light .logo-dark {
+  display: block !important;
+}
