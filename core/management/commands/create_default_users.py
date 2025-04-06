@@ -22,10 +22,10 @@ class Command(BaseCommand):
         
         # Lista de usuários padrão com perfis mais completos
         default_users = [
-            # Administradores
+            # Administrador
             {
-                'email': 'admin@example.com',
-                'password': 'admin123',
+                'email': 'admin@55jam.com',
+                'password': '123123',
                 'first_name': 'Admin',
                 'last_name': 'Sistema',
                 'user_type': 'ADMIN',
@@ -33,83 +33,25 @@ class Command(BaseCommand):
                 'is_superuser': True,
                 'bio': 'Administrador principal do sistema CincoCincoJAM 2.0.',
             },
-            {
-                'email': 'diretor@example.com',
-                'password': 'diretor123',
-                'first_name': 'Diretor',
-                'last_name': 'Acadêmico',
-                'user_type': 'ADMIN',
-                'is_staff': True,
-                'is_superuser': False,
-                'bio': 'Diretor acadêmico responsável pela supervisão de cursos.',
-            },
             
-            # Professores
+            # Professor
             {
-                'email': 'professor@example.com',
-                'password': 'prof123',
+                'email': 'professor@55jam.com',
+                'password': '123123',
                 'first_name': 'Professor',
                 'last_name': 'Exemplo',
                 'user_type': 'PROFESSOR',
                 'bio': 'Professor com experiência em programação web e desenvolvimento de sistemas.',
             },
-            {
-                'email': 'ana.silva@example.com',
-                'password': 'prof123',
-                'first_name': 'Ana',
-                'last_name': 'Silva',
-                'user_type': 'PROFESSOR',
-                'bio': 'Professora de Matemática com doutorado em Estatística. Especialista em modelagem matemática e análise de dados.',
-            },
-            {
-                'email': 'carlos.oliveira@example.com',
-                'password': 'prof123',
-                'first_name': 'Carlos',
-                'last_name': 'Oliveira',
-                'user_type': 'PROFESSOR',
-                'bio': 'Professor de Tecnologia da Informação com 15 anos de experiência em desenvolvimento de software e segurança cibernética.',
-            },
             
-            # Alunos
+            # Aluno
             {
-                'email': 'aluno@example.com',
-                'password': 'aluno123',
+                'email': 'aluno@55jam.com',
+                'password': '123123',
                 'first_name': 'Aluno',
                 'last_name': 'Teste',
                 'user_type': 'STUDENT',
                 'bio': 'Estudante de tecnologia interessado em desenvolvimento web e inteligência artificial.',
-            },
-            {
-                'email': 'maria.santos@example.com',
-                'password': 'aluno123',
-                'first_name': 'Maria',
-                'last_name': 'Santos',
-                'user_type': 'STUDENT',
-                'bio': 'Estudante de engenharia de software com interesse em desenvolvimento mobile e experiência do usuário.',
-            },
-            {
-                'email': 'joao.pereira@example.com',
-                'password': 'aluno123',
-                'first_name': 'João',
-                'last_name': 'Pereira',
-                'user_type': 'STUDENT',
-                'bio': 'Estudante de ciência da computação focado em algoritmos e estruturas de dados.',
-            },
-            {
-                'email': 'lucas.ferreira@example.com',
-                'password': 'aluno123',
-                'first_name': 'Lucas',
-                'last_name': 'Ferreira',
-                'user_type': 'STUDENT',
-                'bio': 'Estudante de design digital com interesse em interfaces de usuário e experiência do usuário.',
-            },
-            {
-                'email': 'julia.costa@example.com',
-                'password': 'aluno123',
-                'first_name': 'Júlia',
-                'last_name': 'Costa',
-                'user_type': 'STUDENT',
-                'bio': 'Estudante de análise de sistemas com foco em banco de dados e arquitetura de software.',
             },
         ]
 
@@ -150,3 +92,11 @@ class Command(BaseCommand):
         self.stdout.write(f"Usuários ignorados: {skipped_count}")
         self.stdout.write(f"Total de usuários processados: {len(default_users)}")
         self.stdout.write("\nUse --force-update para atualizar usuários existentes")
+        
+        # Informações de acesso
+        self.stdout.write("\n=== Informações de Acesso ===")
+        self.stdout.write(f"{'Email':<30} {'Senha':<10} {'Tipo':<15}")
+        self.stdout.write("-" * 55)
+        self.stdout.write(f"{'admin@55jam.com':<30} {'123123':<10} {'Admin':<15}")
+        self.stdout.write(f"{'professor@55jam.com':<30} {'123123':<10} {'Professor':<15}")
+        self.stdout.write(f"{'aluno@55jam.com':<30} {'123123':<10} {'Aluno':<15}")
