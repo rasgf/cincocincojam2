@@ -68,7 +68,7 @@ class EnrollmentRequiredMixin(UserPassesTestMixin):
                 if enrollment.status == Enrollment.Status.PENDING:
                     messages.warning(self.request, 'Sua matrícula está pendente de pagamento. Por favor, conclua o pagamento para acessar o curso.')
                     print(f"[DEBUG] EnrollmentRequiredMixin: Redirecionando para pagamento PIX do curso {course_id}")
-                    return redirect('payments:create_pix_payment', course_id=course_id)
+                    return redirect('payments:payment_options', course_id=course_id)
                 elif enrollment.status == Enrollment.Status.CANCELLED:
                     messages.warning(self.request, 'Sua matrícula neste curso foi cancelada. Por favor, matricule-se novamente.')
                     print(f"[DEBUG] EnrollmentRequiredMixin: Matrícula cancelada para o curso {course_id}")
@@ -387,13 +387,13 @@ class CourseEnrollView(LoginRequiredMixin, View):
             
             # Se o curso é pago e a matrícula estava cancelada ou é nova, redireciona para pagamento
             if is_paid_course and (created or enrollment.status == Enrollment.Status.CANCELLED):
-                print(f"[DEBUG] Curso pago - Redirecionando para pagamento PIX")
+                print(f"[DEBUG] Curso pago - Redirecionando para opções de pagamento")
                 # Atualiza o status para 'PENDING' para permitir o pagamento
                 enrollment.status = Enrollment.Status.PENDING
                 enrollment.save()
                 
-                # Redireciona para a página de pagamento via PIX
-                return redirect('payments:create_pix_payment', course_id=course.id)
+                # Redireciona para a página de opções de pagamento
+                return redirect('payments:payment_options', course_id=course.id)
             
             elif not created and enrollment.status == Enrollment.Status.CANCELLED:
                 # Se a matrícula estava cancelada e o curso é gratuito, reativa
@@ -406,8 +406,8 @@ class CourseEnrollView(LoginRequiredMixin, View):
                 if enrollment.status == Enrollment.Status.ACTIVE:
                     messages.info(self.request, 'Você já está matriculado neste curso.')
                 elif enrollment.status == Enrollment.Status.PENDING:
-                    print(f"[DEBUG] Redirecionando para pagamento pendente")
-                    return redirect('payments:create_pix_payment', course_id=course.id)
+                    print(f"[DEBUG] Redirecionando para opções de pagamento")
+                    return redirect('payments:payment_options', course_id=course.id)
             else:
                 # Nova matrícula em curso gratuito
                 print(f"[DEBUG] Nova matrícula realizada com sucesso em curso gratuito")
@@ -435,7 +435,7 @@ class CourseEnrollView(LoginRequiredMixin, View):
             # Um redirecionamento para pagamento já deve ter ocorrido em outra parte do código
             # Esta linha provavelmente nunca será alcançada, mas é uma proteção adicional
             print(f"[DEBUG] Tentando redirecionar novamente para pagamento PIX")
-            return redirect('payments:create_pix_payment', course_id=course.id)
+            return redirect('payments:payment_options', course_id=course.id)
         else:
             print(f"[DEBUG] Redirecionando para página de aprendizado do curso {self.course_id}")
             return HttpResponseRedirect(self.get_success_url())
@@ -488,7 +488,7 @@ class CourseLearnView(LoginRequiredMixin, DetailView):
                     if enrollment.status == Enrollment.Status.PENDING:
                         messages.warning(request, 'Sua matrícula está pendente de pagamento. Por favor, conclua o pagamento para acessar o curso.')
                         print(f"[DEBUG] Matrícula pendente, redirecionando para o detalhe do curso")
-                        return redirect('payments:create_pix_payment', course_id=course.id)
+                        return redirect('payments:payment_options', course_id=course.id)
                     elif enrollment.status == Enrollment.Status.CANCELLED:
                         messages.error(request, 'Sua matrícula neste curso foi cancelada.')
                         print(f"[DEBUG] Matrícula cancelada, redirecionando para o detalhe do curso")

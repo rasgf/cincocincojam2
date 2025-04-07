@@ -583,43 +583,34 @@ class AdminProfessorDetailView(LoginRequiredMixin, AdminRequiredMixin, DetailVie
 # Views para alunos
 class StudentPaymentListView(LoginRequiredMixin, StudentRequiredMixin, ListView):
     """
-    Lista todas as transações financeiras do aluno, incluindo histórico de pagamentos.
+    Exibe a lista de pagamentos e matrículas do aluno.
     """
-    model = PaymentTransaction
     template_name = 'payments/student/payment_list.html'
-    context_object_name = 'transactions'
+    context_object_name = 'payments'
+    paginate_by = 20
     
     def get_queryset(self):
-        student = self.request.user
-        queryset = PaymentTransaction.objects.filter(enrollment__student=student)\
-            .select_related('enrollment', 'enrollment__course')\
-            .order_by('-created_at')
-        return queryset
+        # Retornar todos os pagamentos do aluno
+        return PaymentTransaction.objects.filter(
+            enrollment__student=self.request.user
+        ).order_by('-created_at')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        student = self.request.user
         
-        # Resumo das matrículas
-        context['enrollments_count'] = Enrollment.objects.filter(student=student).count()
+        # Obter todas as matrículas do aluno com seus respectivos pagamentos
+        student_enrollments = Enrollment.objects.filter(
+            student=self.request.user
+        ).select_related(
+            'course'
+        ).prefetch_related(
+            Prefetch(
+                'payments',
+                queryset=PaymentTransaction.objects.order_by('-created_at')
+            )
+        ).order_by('-enrolled_at')
         
-        # Resumo financeiro
-        total_paid = self.get_queryset().filter(status=PaymentTransaction.Status.PAID).aggregate(
-            total=Sum('amount')
-        )['total'] or 0
-        
-        total_pending = self.get_queryset().filter(status=PaymentTransaction.Status.PENDING).aggregate(
-            total=Sum('amount')
-        )['total'] or 0
-        
-        context['total_paid'] = total_paid
-        context['total_pending'] = total_pending
-        
-        # Agrupar transações por matrícula/curso
         enrollments_with_payments = []
-        student_enrollments = Enrollment.objects.filter(student=student)\
-            .select_related('course')\
-            .prefetch_related('payments')
             
         for enrollment in student_enrollments:
             transactions = enrollment.payments.all().order_by('-created_at')
@@ -636,6 +627,60 @@ class StudentPaymentListView(LoginRequiredMixin, StudentRequiredMixin, ListView)
         context['enrollments_with_payments'] = enrollments_with_payments
         
         return context
+
+
+@login_required
+def payment_options(request, course_id):
+    """
+    Exibe as opções de pagamento disponíveis para o curso.
+    
+    Args:
+        request: Objeto HttpRequest
+        course_id: ID do curso
+        
+    Returns:
+        HttpResponse: Página com as opções de pagamento
+    """
+    # Verificar se o curso existe
+    course = get_object_or_404(Course, id=course_id, status=Course.Status.PUBLISHED)
+    
+    # Verificar se o usuário é um aluno
+    if not request.user.is_student:
+        messages.error(request, _('Apenas alunos podem se matricular em cursos.'))
+        return redirect('courses:course_detail', pk=course.id)
+    
+    # Verificar se já existe uma matrícula ativa
+    existing_enrollment = Enrollment.objects.filter(
+        student=request.user,
+        course=course,
+        status=Enrollment.Status.ACTIVE
+    ).first()
+    
+    if existing_enrollment:
+        messages.info(request, _('Você já está matriculado neste curso.'))
+        return redirect('courses:student:course_detail', pk=course.id)
+    
+    # Verificar se existe uma matrícula pendente
+    pending_enrollment = Enrollment.objects.filter(
+        student=request.user,
+        course=course,
+        status=Enrollment.Status.PENDING
+    ).first()
+    
+    # Se não existe matrícula pendente, criar uma
+    if not pending_enrollment:
+        pending_enrollment = Enrollment.objects.create(
+            student=request.user,
+            course=course,
+            status=Enrollment.Status.PENDING
+        )
+    
+    context = {
+        'course': course,
+        'enrollment': pending_enrollment,
+    }
+    
+    return render(request, 'payments/payment_options.html', context)
 
 
 class StudentEnrollmentDetailView(LoginRequiredMixin, StudentRequiredMixin, DetailView):

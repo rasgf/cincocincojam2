@@ -199,6 +199,10 @@ AUTH_USER_MODEL = 'core.User'
 OPENPIX_TOKEN = env('OPENPIX_TOKEN', default="Q2xpZW50X0lkXzkyZTNlM2Q4LTM1ZTctNDk1My04ODJiLTY1MTc0MmE3NWIwMTpDbGllbnRfU2VjcmV0XzlXdHVKTTgwSXFYYkNEVzl6MjVxTmh4REFLcnhVTXRqeFBkNmk1cTZnKzQ9")
 OPENPIX_WEBHOOK_SECRET = env('OPENPIX_WEBHOOK_SECRET', default="")  # Será definido posteriormente
 
+# Configuração do Pagar.me (integração de pagamento com cartão)
+PAGARME_API_KEY = env('PAGARME_API_KEY', default="chave_de_api_simulada_pagarme")
+PAGARME_ENCRYPTION_KEY = env('PAGARME_ENCRYPTION_KEY', default="chave_de_criptografia_simulada_pagarme")
+
 # Settings para o Assistente Virtual/ChatBot
 OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
 OPENAI_MODEL = env('OPENAI_MODEL', default='gpt-4o-mini')

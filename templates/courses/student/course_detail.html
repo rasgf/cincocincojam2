@@ -67,9 +67,6 @@
                                             <a href="{% url 'courses:student:course_enroll' course.id %}" class="btn btn-primary me-2">
                                                 <i class="fas fa-graduation-cap"></i> Matricular-se Novamente
                                             </a>
-                                            <a href="{% url 'payments:create_pix_payment' course.id %}" class="btn btn-success">
-                                                <i class="fas fa-qrcode"></i> Comprar com Pix
-                                            </a>
                                         </div>
                                         <p class="small text-muted mt-2">Sua matrícula anterior foi cancelada. Você pode se matricular novamente.</p>
                                     {% else %}
@@ -77,11 +74,8 @@
                                             <a href="{% url 'courses:student:course_enroll' course.id %}" class="btn btn-primary me-2">
                                                 <i class="fas fa-graduation-cap"></i> Matricular-se Agora
                                             </a>
-                                            <a href="{% url 'payments:create_pix_payment' course.id %}" class="btn btn-success">
-                                                <i class="fas fa-qrcode"></i> Comprar com Pix
-                                            </a>
                                         </div>
-                                        <p class="small text-muted mt-2">Escolha entre matrícula direta ou pagamento via Pix.</p>
+                                        <p class="small text-muted mt-2">Clique para se matricular neste curso.</p>
                                     {% endif %}
                                 {% else %}
                                     <a href="{% url 'courses:student:course_learn' course.id %}" class="btn btn-success">

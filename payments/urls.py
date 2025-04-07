@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import pix_views
+from . import card_views
 
 app_name = 'payments'
 
@@ -31,6 +32,11 @@ student_patterns = [
     path('student/enrollment/<int:pk>/', views.StudentEnrollmentDetailView.as_view(), name='student_enrollment_detail'),
 ]
 
+# URLs para opções de pagamento
+payment_options_patterns = [
+    path('payment-options/<int:course_id>/', views.payment_options, name='payment_options'),
+]
+
 # URLs para pagamentos via Pix
 pix_patterns = [
     path('pix/payment/<int:course_id>/', pix_views.create_pix_payment, name='create_pix_payment'),
@@ -38,6 +44,14 @@ pix_patterns = [
     path('pix/webhook/', pix_views.pix_webhook, name='pix_webhook'),
     path('pix/check_status/<int:payment_id>/', pix_views.check_payment_status, name='check_pix_status'),
     path('pix/simulate/<int:payment_id>/', pix_views.simulate_pix_payment, name='simulate_pix_payment'),
+]
+
+# URLs para pagamentos com cartão
+card_patterns = [
+    path('card/create/<int:course_id>/', card_views.create_card_payment, name='create_card_payment'),
+    path('card/detail/<int:payment_id>/', card_views.card_payment_detail, name='card_payment_detail'),
+    path('card/webhook/', card_views.card_webhook, name='card_webhook'),
+    path('card/simulate/<int:payment_id>/', card_views.simulate_card_payment, name='simulate_card_payment'),
 ]
 
 # URLs para vendas avulsas
@@ -57,6 +71,8 @@ urlpatterns = [
     *professor_patterns,
     *admin_patterns,
     *student_patterns,
+    *payment_options_patterns,
     *pix_patterns,
+    *card_patterns,
     *singlesale_patterns,
 ]

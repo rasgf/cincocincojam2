@@ -7,6 +7,7 @@ from django.utils import timezone
 from core.models import User
 from courses.models import Course, Lesson, Enrollment
 from payments.models import PaymentTransaction
+from invoices.models import Invoice, CompanyConfig
 
 def get_all_students():
     """
@@ -354,6 +355,195 @@ def get_financial_data():
     except Exception as e:
         return f"Erro ao acessar dados financeiros: {str(e)}"
 
+def get_invoice_data(invoice_id=None, user_email=None):
+    """
+    Retorna dados de notas fiscais
+    
+    Args:
+        invoice_id: ID específico da nota fiscal
+        user_email: Email do usuário para filtrar notas
+        
+    Returns:
+        String com dados formatados das notas fiscais
+    """
+    try:
+        result = "# 📄 Informações de Notas Fiscais\n\n"
+        
+        # Caso específico de nota por ID
+        if invoice_id:
+            try:
+                invoice = Invoice.objects.get(id=invoice_id)
+                
+                result += f"## 📃 Nota Fiscal #{invoice.id}\n\n"
+                result += f"- **Status**: {invoice.get_status_display()}\n"
+                result += f"- **Tipo**: {invoice.get_type_display() if hasattr(invoice, 'get_type_display') else invoice.type}\n"
+                
+                # Informações do RPS
+                if invoice.rps_numero:
+                    result += f"- **RPS**: Série {invoice.rps_serie}, Número {invoice.rps_numero}\n"
+                
+                # Informações da transação
+                if invoice.transaction:
+                    transaction = invoice.transaction
+                    result += f"- **Transação**: #{transaction.id}\n"
+                    result += f"- **Valor**: R$ {float(transaction.amount):.2f}\n"
+                    
+                    # Informações do estudante
+                    try:
+                        enrollment = transaction.enrollment
+                        student = enrollment.student
+                        result += f"- **Estudante**: {student.get_full_name() or student.email}\n"
+                        result += f"- **Curso**: {enrollment.course.title}\n"
+                    except:
+                        result += "- **Erro**: Não foi possível obter informações do estudante/curso\n"
+                elif invoice.amount:
+                    # Se não tem transação mas tem valor direto
+                    result += f"- **Valor**: R$ {float(invoice.amount):.2f}\n"
+                    result += f"- **Cliente**: {invoice.customer_name or 'N/A'}\n"
+                    result += f"- **Email**: {invoice.customer_email or 'N/A'}\n"
+                    result += f"- **Descrição**: {invoice.description or 'N/A'}\n"
+                
+                # Datas
+                result += f"- **Criada em**: {invoice.created_at.strftime('%d/%m/%Y %H:%M')}\n"
+                if invoice.emitted_at:
+                    result += f"- **Emitida em**: {invoice.emitted_at.strftime('%d/%m/%Y %H:%M')}\n"
+                
+                # Links
+                if invoice.focus_pdf_url:
+                    result += f"- **Link do PDF**: [Acessar PDF da nota]({invoice.focus_pdf_url})\n"
+                
+                # Erro (se houver)
+                if invoice.error_message:
+                    result += f"\n**Mensagem de erro**:\n```\n{invoice.error_message}\n```\n"
+                
+                return result
+            except Invoice.DoesNotExist:
+                return f"Nota fiscal com ID {invoice_id} não encontrada."
+            except Exception as e:
+                return f"Erro ao buscar nota fiscal específica: {str(e)}"
+        
+        # Filtro por email do usuário
+        if user_email:
+            try:
+                user = User.objects.get(email=user_email)
+                
+                # Verificar se é professor, para mostrar notas emitidas
+                if user.user_type == 'PROFESSOR':
+                    # Buscar transações dos cursos deste professor que tenham notas
+                    invoices = Invoice.objects.filter(
+                        transaction__enrollment__course__professor=user
+                    ).order_by('-created_at')
+                    
+                    result += f"## Notas Fiscais Emitidas pelo Professor {user.get_full_name() or user.email}\n\n"
+                    
+                # Verificar se é estudante, para mostrar notas recebidas
+                elif user.user_type == 'STUDENT':
+                    # Buscar transações deste estudante que tenham notas
+                    invoices = Invoice.objects.filter(
+                        transaction__enrollment__student=user
+                    ).order_by('-created_at')
+                    
+                    result += f"## Notas Fiscais do Estudante {user.get_full_name() or user.email}\n\n"
+                    
+                else:
+                    return f"Usuário {user_email} não é professor nem estudante."
+                    
+                if not invoices.exists():
+                    return result + "Não foram encontradas notas fiscais para este usuário."
+                
+                # Mostrar resumo das notas
+                result += f"**Total de notas encontradas**: {invoices.count()}\n\n"
+                
+                # Mostrar as 10 notas mais recentes
+                for i, invoice in enumerate(invoices[:10], 1):
+                    result += f"**{i}. Nota #{invoice.id}**\n"
+                    result += f"- Status: {invoice.get_status_display()}\n"
+                    
+                    if invoice.transaction:
+                        result += f"- Valor: R$ {float(invoice.transaction.amount):.2f}\n"
+                        
+                        # Dados do curso
+                        try:
+                            course = invoice.transaction.enrollment.course
+                            result += f"- Curso: {course.title}\n"
+                        except:
+                            pass
+                    elif invoice.amount:
+                        result += f"- Valor: R$ {float(invoice.amount):.2f}\n"
+                    
+                    # Data de emissão
+                    if invoice.emitted_at:
+                        result += f"- Emitida em: {invoice.emitted_at.strftime('%d/%m/%Y')}\n"
+                    else:
+                        result += f"- Criada em: {invoice.created_at.strftime('%d/%m/%Y')}\n"
+                    
+                    # Link para PDF se disponível
+                    if invoice.focus_pdf_url:
+                        result += f"- [Ver PDF]({invoice.focus_pdf_url})\n"
+                    
+                    result += "\n"
+                
+                if invoices.count() > 10:
+                    result += f"_... e mais {invoices.count() - 10} notas fiscais_\n"
+                
+                return result
+            except User.DoesNotExist:
+                return f"Usuário com email {user_email} não encontrado."
+            except Exception as e:
+                return f"Erro ao buscar notas por email: {str(e)}"
+        
+        # Sem filtros - retornar estatísticas gerais
+        total_invoices = Invoice.objects.count()
+        approved_invoices = Invoice.objects.filter(status='approved').count()
+        processing_invoices = Invoice.objects.filter(status='processing').count()
+        error_invoices = Invoice.objects.filter(status='error').count()
+        
+        result += "## Estatísticas Gerais de Notas Fiscais\n\n"
+        result += f"- **Total de notas fiscais**: {total_invoices}\n"
+        result += f"- **Notas aprovadas**: {approved_invoices}\n"
+        result += f"- **Notas em processamento**: {processing_invoices}\n"
+        result += f"- **Notas com erro**: {error_invoices}\n\n"
+        
+        # Últimas 5 notas emitidas
+        recent_invoices = Invoice.objects.order_by('-created_at')[:5]
+        
+        if recent_invoices.exists():
+            result += "## Notas Fiscais Recentes\n\n"
+            
+            for i, invoice in enumerate(recent_invoices, 1):
+                result += f"**{i}. Nota #{invoice.id}**\n"
+                result += f"- Status: {invoice.get_status_display()}\n"
+                
+                if invoice.transaction:
+                    # Dados da transação
+                    result += f"- Transação: #{invoice.transaction.id}\n"
+                    result += f"- Valor: R$ {float(invoice.transaction.amount):.2f}\n"
+                    
+                    # Tentar obter dados do curso e estudante
+                    try:
+                        enrollment = invoice.transaction.enrollment
+                        course = enrollment.course
+                        student = enrollment.student
+                        result += f"- Curso: {course.title}\n"
+                        result += f"- Estudante: {student.get_full_name() or student.email}\n"
+                        result += f"- Professor: {course.professor.get_full_name() or course.professor.email}\n"
+                    except:
+                        # Ignorar erros de relações
+                        pass
+                elif invoice.amount:
+                    result += f"- Valor: R$ {float(invoice.amount):.2f}\n"
+                    result += f"- Cliente: {invoice.customer_name or 'N/A'}\n"
+                
+                # Data de emissão
+                if invoice.emitted_at:
+                    result += f"- Emitida em: {invoice.emitted_at.strftime('%d/%m/%Y %H:%M')}\n"
+                
+                result += "\n"
+        
+        return result
+    except Exception as e:
+        return f"Erro ao acessar dados de notas fiscais: {str(e)}"
+
 def process_db_query(query):
     """
     Processa qualquer consulta sobre o banco de dados
@@ -377,6 +567,30 @@ def process_db_query(query):
     
     # Método original como fallback
     query = query.lower()
+    
+    # Consultas sobre notas fiscais
+    if any(term in query for term in ['nota fiscal', 'notas fiscais', 'nfe', 'nfse', 'rps', 'emissão', 'fatura']):
+        # Verificar se está perguntando sobre uma nota específica
+        if 'id' in query or 'número' in query or 'numero' in query:
+            # Tentar extrair um número de ID da query
+            import re
+            id_match = re.search(r'id\s+(\d+)', query) or re.search(r'número\s+(\d+)', query) or re.search(r'nota\s+(\d+)', query) or re.search(r'#(\d+)', query)
+            
+            if id_match:
+                invoice_id = id_match.group(1)
+                return get_invoice_data(invoice_id=invoice_id)
+        
+        # Verificar se está perguntando sobre notas de um usuário específico
+        if 'usuário' in query or 'usuario' in query or 'professor' in query or 'aluno' in query or 'estudante' in query:
+            # Tentar extrair um email
+            email_match = re.search(r'[\w\.-]+@[\w\.-]+', query)
+            
+            if email_match:
+                user_email = email_match.group(0)
+                return get_invoice_data(user_email=user_email)
+        
+        # Se não houver filtros específicos, retornar informações gerais
+        return get_invoice_data()
     
     # Consultas sobre alunos/clientes
     if any(term in query for term in ['alunos', 'aluno', 'cliente', 'clientes', 'estudantes']):
