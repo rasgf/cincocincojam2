@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{% if current_lesson %}{{ current_lesson.title }} - {% endif %}{{ course.title }} - CincoCincoJAM 2.0{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/custom.css' %}">
+{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -80,12 +85,27 @@
                 </div>
                 <div class="card-body">
                     {% if current_lesson.video_url %}
-                        <div class="ratio ratio-16x9 mb-4">
-                            {% if "youtube.com" in current_lesson.video_url or "youtu.be" in current_lesson.video_url %}
-                                {% if youtube_video_id %}
-                                    <iframe src="https://www.youtube.com/embed/{{ youtube_video_id }}?rel=0" 
-                                            title="{{ current_lesson.title }}" 
-                                            allowfullscreen></iframe>
+                        <div class="video-container">
+                            {% if current_lesson.id in completed_lessons %}
+                                <div class="lesson-completed-badge">
+                                    <i class="fas fa-check-circle"></i> Concluída
+                                </div>
+                            {% endif %}
+                            
+                            <div class="ratio ratio-16x9 mb-2">
+                                {% if "youtube.com" in current_lesson.video_url or "youtu.be" in current_lesson.video_url %}
+                                    {% if youtube_video_id %}
+                                        <iframe id="youtube-video-{{ current_lesson.id }}" 
+                                                src="https://www.youtube.com/embed/{{ youtube_video_id }}?rel=0&enablejsapi=1" 
+                                                title="{{ current_lesson.title }}" 
+                                                allowfullscreen></iframe>
+                                    {% else %}
+                                        <div class="d-flex justify-content-center align-items-center bg-light">
+                                            <a href="{{ current_lesson.video_url }}" target="_blank" class="btn btn-primary">
+                                                <i class="fas fa-external-link-alt me-2"></i> Abrir Vídeo
+                                            </a>
+                                        </div>
+                                    {% endif %}
                                 {% else %}
                                     <div class="d-flex justify-content-center align-items-center bg-light">
                                         <a href="{{ current_lesson.video_url }}" target="_blank" class="btn btn-primary">
@@ -93,13 +113,21 @@
                                         </a>
                                     </div>
                                 {% endif %}
-                            {% else %}
-                                <div class="d-flex justify-content-center align-items-center bg-light">
-                                    <a href="{{ current_lesson.video_url }}" target="_blank" class="btn btn-primary">
-                                        <i class="fas fa-external-link-alt me-2"></i> Abrir Vídeo
-                                    </a>
-                                </div>
-                            {% endif %}
+                            </div>
+                            
+                            <div class="progress-container">
+                                <div id="video-progress-bar-{{ current_lesson.id }}" 
+                                     class="video-progress-bar" 
+                                     role="progressbar" 
+                                     aria-valuenow="0" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100"></div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between">
+                                <span class="small">Progresso:</span>
+                                <span class="small" id="video-progress-bar-{{ current_lesson.id }}-text">0%</span>
+                            </div>
                         </div>
                     {% else %}
                         <div class="alert alert-info mb-4">
@@ -181,4 +209,82 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/video-player.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if current_lesson and current_lesson.video_url and youtube_video_id %}
+        // Inicializar o rastreador de progresso do vídeo
+        const videoTracker = new VideoProgressTracker({
+            videoElementId: 'youtube-video-{{ current_lesson.id }}',
+            progressBarId: 'video-progress-bar-{{ current_lesson.id }}',
+            lessonId: {{ current_lesson.id }},
+            csrfToken: '{{ csrf_token }}',
+            autoMarkComplete: true,
+            completionThreshold: 90,
+            debug: true
+        });
+        
+        // Evento para marcar a aula como concluída automaticamente
+        document.addEventListener('lessonCompleted', function(e) {
+            const lessonId = e.detail.lessonId;
+            const percentage = e.detail.percentage;
+            
+            // Atualiza a interface se a aula atual foi concluída
+            if (lessonId === {{ current_lesson.id }} && !document.querySelector('.lesson-completed-badge')) {
+                // Adiciona o emblema de conclusão
+                const videoContainer = document.querySelector('.video-container');
+                if (videoContainer) {
+                    const badge = document.createElement('div');
+                    badge.className = 'lesson-completed-badge';
+                    badge.innerHTML = '<i class="fas fa-check-circle"></i> Concluída';
+                    videoContainer.appendChild(badge);
+                }
+                
+                // Atualiza o botão de conclusão
+                const completeButton = document.querySelector('button[type="submit"].btn-success');
+                if (completeButton) {
+                    completeButton.disabled = true;
+                    completeButton.innerHTML = '<i class="fas fa-check-circle me-1"></i> Aula Concluída';
+                }
+                
+                // Atualiza a lista de aulas
+                const lessonItem = document.querySelector(`.list-group-item.active`);
+                if (lessonItem) {
+                    const iconContainer = document.createElement('i');
+                    iconContainer.className = 'fas fa-check-circle text-success';
+                    lessonItem.querySelector('.d-flex.w-100').appendChild(iconContainer);
+                    
+                    // Atualiza a badge da aula na lista
+                    const badge = lessonItem.querySelector('.badge');
+                    if (badge) {
+                        badge.classList.remove('bg-primary');
+                        badge.classList.add('bg-success');
+                    }
+                }
+                
+                // Atualiza a barra de progresso do curso
+                const progressBar = document.querySelector('.progress-bar');
+                if (progressBar) {
+                    // Incrementa em 1/total_lessons * 100
+                    const totalLessons = {{ lessons|length }};
+                    const currentProgress = parseInt(progressBar.getAttribute('aria-valuenow'));
+                    const newProgress = currentProgress + (1 / totalLessons * 100);
+                    progressBar.style.width = newProgress + '%';
+                    progressBar.setAttribute('aria-valuenow', newProgress);
+                    progressBar.textContent = Math.round(newProgress) + '%';
+                    
+                    // Atualiza também o indicador principal de progresso
+                    const progressBadge = document.querySelector('.card-header .badge');
+                    if (progressBadge) {
+                        progressBadge.textContent = Math.round(newProgress) + '% Concluído';
+                    }
+                }
+            }
+        });
+        {% endif %}
+    });
+</script>
 {% endblock %}

@@ -4,3 +4,9 @@ python-decouple==3.8
 django-crispy-forms==2.0
 crispy-bootstrap5==0.7
 Pillow==10.1.0
+whitenoise==6.9.0
+openai==1.69.0
+django-environ==0.12.0
+dj-database-url==2.3.0
+gunicorn==21.2.0
+requests==2.31.0
